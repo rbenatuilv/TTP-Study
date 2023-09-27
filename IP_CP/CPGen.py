@@ -34,6 +34,7 @@ def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc):
     model.Add(venue[0] == home)
     model.Add(venue[nb_slots + 1] == home)
 
+    # sum(bool(venue[s] == x) for s in S) == nb_slots
     model.Add(2 * sum(home_venue[s] for s in Slots) == nb_slots)
 
     for s in range(1, nb_slots - 3):
@@ -67,7 +68,7 @@ def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc):
     # Print the solution.
     if status == cp_model.OPTIMAL:
         respuesta["estado"] = "Factible"
-        respuesta["objective"] = solver.Value(sum(travel[s] - bool_venues[(i, s)] * rc[i][s] for s in range(nb_slots) for i in Teams))
+        respuesta["objective"] = solver.Value(sum(travel[s] - bool_venues[(home, s)] * rc[home][s] for s in range(nb_slots)))
         respuesta["pattern"] = [solver.Value(venue[s]) for s in Slots]
         # print('Optimal solution found:')
         # for s in Slots:

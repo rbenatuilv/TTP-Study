@@ -4,10 +4,10 @@ from CPGen import solve_game_schedule_with_ortools
 
 
 def get_cost(i, patron, Dist):
-    suma = Dist[t][patron[0]]
+    suma = Dist[i][patron[0]]
     for s in S[:len(S) - 1]:
         suma += Dist[patron[s]][patron[s + 1]]
-    suma += Dist[patron[-1]][t]
+    suma += Dist[patron[-1]][i]
     return suma
     
 n = 4
@@ -15,10 +15,10 @@ T = range(n)
 S = range(2 * n - 2)
 
 D = [
-    [0, 4, 2, 3],
-    [4, 0, 6, 7],
-    [2, 6, 0, 5],
-    [3, 7, 5, 0]
+    [0, 4, 100, 2],
+    [4, 0, 10, 20],
+    [100, 10, 0, 5],
+    [2, 20, 5, 0]
 ]
 Left = 1
 Right = 3
@@ -32,10 +32,19 @@ maestro.Params.OutputFlag = 0
 
 # Conjunto de todos los paths posibles 
 P = [
+    [0, 0, 0, 1, 2, 3],
+    [0, 0, 1, 0, 3, 2],
     [1, 0, 0, 0, 2, 3],
+    [1, 0, 1, 1, 2, 3],
     [1, 1, 1, 0, 3, 2],
+    [1, 1, 1, 0, 2, 3],
+    [2, 0, 1, 3, 3, 3],
     [2, 1, 0, 3, 2, 2],
-    [2, 0, 1, 3, 3, 3]
+    [2, 2, 2, 3, 0, 1],
+    [3, 0, 1, 2, 3, 3],
+    [3, 0, 2, 0, 0, 1],
+    [3, 1, 0, 2, 2, 2]
+    
 #     , [1, 0, 2, 0, 0, 3]
 ]
 
@@ -54,6 +63,7 @@ pi = dict()
 for t in T:
     for p in P_t[t]:
         pi[p] = get_cost(t, P[p], D)
+        print(f"costo del path {p}", pi[p])
         
 # {patrones tales que t juega como home contra algun otro equipo j en el slot s}
 home_t_s = dict()
@@ -90,11 +100,22 @@ for t in T:
             (quicksum(x[i] for i in home_t_s[t, s]) + quicksum(x[i] for i in away_t_s[t, s]) == 1),
             name=f"R_{t}_{s}"
         )
-        
-limit_iteraciones = 5
+
+for t in T:
+    maestro.addConstr(quicksum(x[i] for i in P_t[t]) == 1, f"Asignacion_{t}")   
+
+
+limit_iteraciones = 1
 for iteracion in range(limit_iteraciones):
     maestro.update()
     maestro.optimize()
+    maestro.write("nomre.lp")
+
+    if maestro.status != GRB.OPTIMAL:
+        print("no es optimo!")
+    
+    for var in maestro.getVars():
+        print(f"{var.VarName}: {var.X}")
 
     # dual_vars = maestro.getAttr('Pi', maestro.getConstrs())
     dual_vars = []

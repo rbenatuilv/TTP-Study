@@ -118,4 +118,4 @@ if __name__ == "__main__":
     Left = 1
     Right = 3
 
-    TTP(N, D2, Left, Right)
+    TTP(N, Distancia, Left, Right)
