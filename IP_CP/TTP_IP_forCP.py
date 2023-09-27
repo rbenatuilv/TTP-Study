@@ -2,15 +2,23 @@ from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
 from CPGen import solve_game_schedule_with_ortools
 
+
+def get_cost(i, patron, Dist):
+    suma = Dist[t][patron[0]]
+    for s in S[:len(S) - 1]:
+        suma += Dist[patron[s]][patron[s + 1]]
+    suma += Dist[patron[-1]][t]
+    return suma
+    
 n = 4
 T = range(n)
 S = range(2 * n - 2)
 
 D = [
-    [0, 1, 2, 3],
-    [1, 0, 3, 4],
-    [2, 3, 0, 5],
-    [3, 4, 5, 0]
+    [0, 4, 2, 3],
+    [4, 0, 6, 7],
+    [2, 6, 0, 5],
+    [3, 7, 5, 0]
 ]
 Left = 1
 Right = 3
@@ -31,9 +39,6 @@ P = [
 #     , [1, 0, 2, 0, 0, 3]
 ]
 
-
-    
-
 # Diccionario de listas
 # Dado un t te devuelve los indices de P tal que P es un single tournament de t
 P_t = dict() 
@@ -48,12 +53,7 @@ for t in T:
 pi = dict()
 for t in T:
     for p in P_t[t]:
-        pattern = P[p]
-        suma = D[t][pattern[0]]
-        for s in S[:len(S) - 1]:
-            suma += D[pattern[s]][pattern[s + 1]]
-        suma += D[pattern[-1]][t]
-        pi[p] = suma
+        pi[p] = get_cost(t, P[p], D)
         
 # {patrones tales que t juega como home contra algun otro equipo j en el slot s}
 home_t_s = dict()
@@ -66,7 +66,7 @@ for t in T:
                 for p in P_t[j]:
                     if P[p][s] == t:
                         home_t_s[t, s].add(p)
-        print(f"home_{t}_{s}", home_t_s[t, s])
+        # print(f"home_{t}_{s}", home_t_s[t, s])
 
 # {patrones tales que t juega como away contra algun otro equipo j en el slot s}
 away_t_s = dict()
@@ -76,7 +76,7 @@ for t in T:
         for p in P_t[t]:
             if P[p][s] != t:
                 away_t_s[t, s].add(p)
-        print(f"away_{t}_{s}", away_t_s[t, s])
+    # print(f"away_{t}_{s}", away_t_s[t, s])
 
 # Variable binaria que indica si se toma el path i o no
 x = [maestro.addVar(vtype=GRB.CONTINUOUS, lb=0, ub=1, name=f'x_{i}') for i in range(len(P))]
@@ -114,19 +114,17 @@ for iteracion in range(limit_iteraciones):
             patron = pattern['pattern']
             columna = [0 for s in S for t in T]
             for s, t in enumerate(patron):
-                if t - 1 != i:
+                if t != i:
                     # Lo anado en la restriccion t,s
-                    columna[(t - 1) * len(S) + s] = 1
+                    columna[t * len(S) + s] = 1
                     
                     # Lo anado en la restriccion i,s
                     columna[i * len(S) + s] = 1
             Column(columna, maestro.getConstrs())
             x.append(maestro.addVar(vtype=GRB.CONTINUOUS, name=f'x_{i}_{len(P)}'))
             P_t[i].add(len(P))
-            pi[len(P)] = pattern['objective']
+            pi[len(P)] = get_cost(i, patron, D)
             P.append(pattern['pattern'])
             
-
-# t is oponent in slot s
-# t is away in slot s
-
+        elif pattern['estado'] != "Infactible":
+            print("valor objetivo positivo :c\n\n")

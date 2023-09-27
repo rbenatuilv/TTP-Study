@@ -7,11 +7,11 @@ def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc):
     model = cp_model.CpModel()
 
     # Define the range for Teams and Slots.
-    Teams = range(1, nb_teams + 1)
+    Teams = range(nb_teams)
     Slots = range(1, nb_slots + 1)
 
     # Define the venue variables.
-    venue = [model.NewIntVar(1, nb_teams, f'venue_{s}') for s in range(nb_slots + 2)]
+    venue = [model.NewIntVar(0, nb_teams - 1, f'venue_{s}') for s in range(nb_slots + 2)]
 
     # Define the travel variables.
     travel = [model.NewIntVar(0, 1380, f'travel_{s}') for s in range(nb_slots + 1)]
@@ -51,11 +51,11 @@ def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc):
                 model.Add(bool_venues[(i, s)] + bool_venues[(j, s + 1)] == 2).OnlyEnforceIf(bool_travel[(i, j, s)])
                 model.Add(bool_venues[(i, s)] + bool_venues[(j, s + 1)] != 2).OnlyEnforceIf(bool_travel[(i, j, s)].Not())
 
-                model.Add(travel[s] == distance[i - 1][j - 1]).OnlyEnforceIf(bool_travel[(i, j, s)])
+                model.Add(travel[s] == distance[i][j]).OnlyEnforceIf(bool_travel[(i, j, s)])
 
     # Objective function
     # model.Add(sum(travel[s] for s in range(nb_slots + 1)) <= ILB + 30)
-    model.Minimize(sum(travel[s] - bool_venues[(i, s)] * rc[i - 1][s - 1] for s in range(nb_slots + 1) for i in Teams))
+    model.Minimize(sum(travel[s] - bool_venues[(i, s)] * rc[i][s] for s in range(nb_slots) for i in Teams))
     
 
     # Create a solver and solve the model.
@@ -67,21 +67,22 @@ def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc):
     # Print the solution.
     if status == cp_model.OPTIMAL:
         respuesta["estado"] = "Factible"
-        respuesta["objective"] = -1
+        respuesta["objective"] = solver.Value(sum(travel[s] - bool_venues[(i, s)] * rc[i][s] for s in range(nb_slots) for i in Teams))
         respuesta["pattern"] = [solver.Value(venue[s]) for s in Slots]
-        print('Optimal solution found:')
-        for s in Slots:
-            print(f'Slot {s}: Team {solver.Value(venue[s])}')
+        # print('Optimal solution found:')
+        # for s in Slots:
+        #     print(f'Slot {s}: Team {solver.Value(venue[s])}')
             
     elif status == cp_model.INFEASIBLE:
         respuesta["estado"] = "Infactible"
         print('AAAAAAAAAAAAA')
+
     return respuesta
 
 if __name__ == "__main__":
-    home = 4
-    nb_teams = 6
-    nb_slots = 10
+    home = 1
+    nb_teams = 4
+    nb_slots = 6
     distance = [[0, 10, 20, 30, 30, 13], 
                 [10, 0, 15, 25, 30, 15], 
                 [20, 15, 0, 4, 12, 21], 

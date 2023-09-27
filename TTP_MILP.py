@@ -108,12 +108,14 @@ if __name__ == "__main__":
         [2, 3, 0, 5],
         [3, 4, 5, 0]
     ]
+    D2 = [
+        [0, 4, 2, 3],
+        [4, 0, 6, 7],
+        [2, 6, 0, 5],
+        [3, 7, 5, 0]
+    ]
     N = 4
     Left = 1
     Right = 3
 
-    TTP(N,  Distancia, Left, Right)
-    
-    aux = [[0] * 4] * 3
-    aux[1][1] = 1
-    print(*aux, sep='\n')
+    TTP(N, D2, Left, Right)
