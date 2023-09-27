@@ -2,8 +2,8 @@ from gurobipy import GRB, Model
 from gurobipy import quicksum 
 
 def TTP(n, D, L, U):
-    T = range(1, n + 1)
-    S = range(1, 2*n - 1)
+    T = range(n)
+    S = range(2*n - 2)
     
     m = Model()
     
@@ -34,21 +34,21 @@ def TTP(n, D, L, U):
     
     # R4 Cada equipo juega a lo menos L partidos consecutivos y a lo más U partidos consecutivos
     m.addConstrs(
-        quicksum(x[i, j, k + l] for l in range(0, U + 1) for j in T) <= U
-        for i in T for k in range(1, 2 * n - 2 - U)
+        quicksum(x[i, j, k + l] for l in range(U + 1) for j in T) <= U
+        for i in T for k in range(2 * n - 2 - U)
     )
     
     # R4 Cada equipo juega a lo menos L partidos consecutivos y a lo más U partidos consecutivos
     m.addConstrs(
-        quicksum(x[i, j, k + l] for l in range(0, U + 1) for j in T) >= L
-        for i in T for k in range(1, 2 * n - 2 - U)
+        quicksum(x[i, j, k + l] for l in range(U + 1) for j in T) >= L
+        for i in T for k in range(2 * n - 2 - U)
     )
     
     # R5 No se pueden jugar dos equipos consecutivos
     m.addConstrs(
         (
             x[i, j, k] + x[j, i, k] + x[i, j, k + 1] + x[j, i, k + 1] <= 1
-            for i in T for j in T for k in range(1, 2 * n - 2)
+            for i in T for j in T for k in range(2 * n - 3)
         ),
         name="R5"
     )
@@ -68,13 +68,13 @@ def TTP(n, D, L, U):
     # R8 Definir si t debe ir a i
     m.addConstrs(
         y[t, i, j, k] >= z[t, i, k] + z[t, j, k + 1] - 1
-        for t in T for i in T for j in T for k in range(1, 2 * n - 2)
+        for t in T for i in T for j in T for k in range(2 * n - 3)
     )
     
     m.setObjective(
-        quicksum(x[i, j, 1] * D[i - 1][j - 1] for i in T for j in T) 
-        + quicksum(y[t, i, j, k] * D[i - 1][j - 1] for t in T for i in T for j in T for k in range(1, 2 * n - 2))
-        + quicksum(x[i, j, 2 * n - 2] * D[i - 1][j - 1] for i in T for j in T)        
+        quicksum(x[i, j, 1] * D[i][j] for i in T for j in T) 
+        + quicksum(y[t, i, j, k] * D[i][j] for t in T for i in T for j in T for k in range(2 * n - 2))
+        + quicksum(x[i, j, 2 * n - 3] * D[i][j] for i in T for j in T)        
         , GRB.MINIMIZE
     )
     
@@ -82,22 +82,32 @@ def TTP(n, D, L, U):
     # m.computeIIS()
     # m.write("model.ilp")
 
-
     print("Tiempo de ejecucion: ", m.Runtime)
     print("Valor objetivo: ", m.ObjVal)
+    
+    for i in T:
+        lista = []
+        for k in S:
+            for j in T:
+                if x[i, j, k].X != 0:
+                    lista.append(("away", j))
+                if x[j, i, k].X != 0:
+                    lista.append(("home", j))
+        print(f"ruta del {i}", lista)
     
     return 
     
     
+if __name__ == "__main__":
     
-Distancia = [
-    [0, 1, 2, 3],
-    [1, 0, 3, 4],
-    [2, 3, 0, 5],
-    [3, 4, 5, 0]
-]
-N = 4
-Left = 1
-Right = 3
+    Distancia = [
+        [0, 1, 2, 3],
+        [1, 0, 3, 4],
+        [2, 3, 0, 5],
+        [3, 4, 5, 0]
+    ]
+    N = 4
+    Left = 1
+    Right = 3
 
-TTP(N,  Distancia, Left, Right)
+    TTP(N,  Distancia, Left, Right)

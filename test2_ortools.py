@@ -71,24 +71,24 @@ def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc, ILB
     elif status == cp_model.INFEASIBLE:
         print('AAAAAAAAAAAAA')
 
+if __name__ == "__main__":
+    home = 4
+    nb_teams = 6
+    nb_slots = 10
+    distance = [[0, 10, 20, 30, 30, 13], 
+                [10, 0, 15, 25, 30, 15], 
+                [20, 15, 0, 4, 12, 21], 
+                [30, 25, 4, 0, 35, 10], 
+                [30, 30, 12, 35, 0, 40],
+                [13, 15, 21, 10, 40, 0]]  
 
-home = 4
-nb_teams = 6
-nb_slots = 10
-distance = [[0, 10, 20, 30, 30, 13], 
-            [10, 0, 15, 25, 30, 15], 
-            [20, 15, 0, 4, 12, 21], 
-            [30, 25, 4, 0, 35, 10], 
-            [30, 30, 12, 35, 0, 40],
-            [13, 15, 21, 10, 40, 0]]  
+    rc = [[0.5, 0.8, 0.3, 0.1, 0.3, 0.2],
+          [0.7, 0.4, 0.6, 0.8, 0.2, 0.1], 
+          [0.2, 0.9, 0.1, 0.2, 0.4, 0.3], 
+          [0.2, 0.9, 0.1, 0.2, 0.1, 0.5]] 
 
-rc = [[0.5, 0.8, 0.3, 0.1, 0.3, 0.2],
-      [0.7, 0.4, 0.6, 0.8, 0.2, 0.1], 
-      [0.2, 0.9, 0.1, 0.2, 0.4, 0.3], 
-      [0.2, 0.9, 0.1, 0.2, 0.1, 0.5]] 
+    ILB = 90
 
-ILB = 90
-
-ti = time.time()
-solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc, ILB)
-print(time.time() - ti)
+    ti = time.time()
+    solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc, ILB)
+    print(time.time() - ti)
