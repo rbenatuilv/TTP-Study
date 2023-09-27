@@ -90,10 +90,12 @@ def TTP(n, D, L, U):
         for k in S:
             for j in T:
                 if x[i, j, k].X != 0:
-                    lista.append(("away", j))
+                    # lista.append(("away", j))
+                    lista.append(j)
                 if x[j, i, k].X != 0:
-                    lista.append(("home", j))
-        print(f"ruta del {i}", lista)
+                    # lista.append(("home", j))
+                    lista.append(i)
+        print(lista)
     
     return 
     
@@ -111,3 +113,7 @@ if __name__ == "__main__":
     Right = 3
 
     TTP(N,  Distancia, Left, Right)
+    
+    aux = [[0] * 4] * 3
+    aux[1][1] = 1
+    print(*aux, sep='\n')

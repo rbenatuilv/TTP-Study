@@ -2,7 +2,7 @@ from ortools.sat.python import cp_model
 import time
 
 
-def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc, ILB):
+def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc):
     # Create a CP model.
     model = cp_model.CpModel()
 
@@ -54,22 +54,29 @@ def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc, ILB
                 model.Add(travel[s] == distance[i - 1][j - 1]).OnlyEnforceIf(bool_travel[(i, j, s)])
 
     # Objective function
-    model.Add(sum(travel[s] for s in range(nb_slots + 1)) <= ILB + 30)
-    # model.Minimize(sum(travel[s] - bool_venues[(i, s)] * rc[i - 1][s - 1] for s in range(nb_slots + 1) for i in Teams))
+    # model.Add(sum(travel[s] for s in range(nb_slots + 1)) <= ILB + 30)
+    model.Minimize(sum(travel[s] - bool_venues[(i, s)] * rc[i - 1][s - 1] for s in range(nb_slots + 1) for i in Teams))
     
 
     # Create a solver and solve the model.
     solver = cp_model.CpSolver()
     status = solver.Solve(model)
 
+    respuesta = dict()
+
     # Print the solution.
     if status == cp_model.OPTIMAL:
+        respuesta["estado"] = "Factible"
+        respuesta["objective"] = -1
+        respuesta["pattern"] = [solver.Value(venue[s]) for s in Slots]
         print('Optimal solution found:')
         for s in Slots:
             print(f'Slot {s}: Team {solver.Value(venue[s])}')
-
+            
     elif status == cp_model.INFEASIBLE:
+        respuesta["estado"] = "Infactible"
         print('AAAAAAAAAAAAA')
+    return respuesta
 
 if __name__ == "__main__":
     home = 4
@@ -90,5 +97,5 @@ if __name__ == "__main__":
     ILB = 90
 
     ti = time.time()
-    solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc, ILB)
+    solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc)
     print(time.time() - ti)
