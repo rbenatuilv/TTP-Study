@@ -2,7 +2,7 @@ from ortools.sat.python import cp_model
 import time
 
 
-def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc):
+def column_generator(home, nb_teams, nb_slots, distance, rc):
     # Create a CP model.
     model = cp_model.CpModel()
 
@@ -76,9 +76,10 @@ def solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc):
             
     elif status == cp_model.INFEASIBLE:
         respuesta["estado"] = "Infactible"
-        print('AAAAAAAAAAAAA')
+        print('No solution found.')
 
     return respuesta
+
 
 if __name__ == "__main__":
     home = 1
@@ -99,5 +100,5 @@ if __name__ == "__main__":
     ILB = 90
 
     ti = time.time()
-    solve_game_schedule_with_ortools(home, nb_teams, nb_slots, distance, rc)
+    column_generator(home, nb_teams, nb_slots, distance, rc)
     print(time.time() - ti)
