@@ -1,6 +1,5 @@
 from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
-from CPGen import column_generator
 from cpgenerator import CPPatternGenerator
 
 
