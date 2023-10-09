@@ -11,7 +11,6 @@ def TTP(n, D, L, U):
     y = m.addVars(T, T, T, S, vtype=GRB.BINARY, name='y')
     z = m.addVars(T, T, S, vtype=GRB.BINARY, name='z')
     
-    
     m.update()
     
     # R1 ningun equipo juega contrasigo mismo

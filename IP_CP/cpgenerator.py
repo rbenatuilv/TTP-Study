@@ -1,5 +1,4 @@
 from ortools.sat.python import cp_model
-import time
 
 
 class CPPatternGenerator:
@@ -69,7 +68,7 @@ class CPPatternGenerator:
         self.set_constrs(home, model, patt_hashes)
         return model
     
-    def solve(self, home, patt_hashes):
+    def single_solve(self, home, patt_hashes):
         model = self.initialize_model(home, patt_hashes)
         status = self.solver.Solve(model)
         ans = dict()
@@ -87,8 +86,9 @@ class CPPatternGenerator:
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
     from inst_gen.print_aux import matrix_print
+    import time
 
-    n = 16
+    n = 6
     distances = generate_distance_matrix(n)
     ph = []
 
@@ -96,11 +96,11 @@ if __name__ == '__main__':
 
     home = 2
     patts = []
-    iters = 100
+    iters = 10
 
     start = time.time()
     for _ in range(iters):
-        ans = generator.solve(home, ph)
+        ans = generator.single_solve(home, ph)
         patts.append(ans['pattern'])
         ph.append(ans['hash'])
 
