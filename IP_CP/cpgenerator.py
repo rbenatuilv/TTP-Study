@@ -51,12 +51,12 @@ class CPPatternGenerator:
 
         model.Add(2 * sum(self.home_venue[s] for s in self.slots) == self.S)
 
-        for s in range(1, self.S - 3):
-            model.Add(sum(self.home_venue[s + j] for j in range(4)) <= self.upper)
-            model.Add(sum(1 - self.home_venue[s + j] for j in range(4)) <= self.upper)
+        for s in range(1, self.S - self.upper):
+            model.Add(sum(self.home_venue[s + j] for j in range(self.upper + 1)) <= self.upper)
+            model.Add(sum(1 - self.home_venue[s + j] for j in range(self.upper + 1)) <= self.upper)
 
-            model.Add(sum(self.home_venue[s + j] for j in range(4)) >= self.lower)
-            model.Add(sum(1 - self.home_venue[s + j] for j in range(4)) >= self.lower)
+            model.Add(sum(self.home_venue[s + j] for j in range(self.upper + 1)) >= self.lower)
+            model.Add(sum(1 - self.home_venue[s + j] for j in range(self.upper + 1)) >= self.lower)
 
         for i in self.teams:
             if i != home:
@@ -88,13 +88,13 @@ if __name__ == '__main__':
     from inst_gen.print_aux import matrix_print
     import time
 
-    n = 6
+    n = 20
     distances = generate_distance_matrix(n)
     ph = []
 
     generator = CPPatternGenerator(n, 1, 3)
 
-    home = 2
+    home = 4
     patts = []
     iters = 10
 

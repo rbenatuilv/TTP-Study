@@ -126,6 +126,7 @@ class TTPSolverIPCP:
         self.master.setObjective(quicksum(self.x[i] * self.costs[i] 
                                           for i in range(len(self.patterns))), 
                                           GRB.MINIMIZE)
+
     def pattern_hash(self, pattern):
         return sum(pattern[s] * 2 ** s for s in self.slots)
 
@@ -163,10 +164,7 @@ class TTPSolverIPCP:
         constrs2 = [0 for _ in self.slots for _ in self.teams]
         for s, t in enumerate(pattern):
             if t != team:
-                # Lo anado en la restriccion t,s
                 constrs2[t * len(self.slots) + s] = 1
-                
-                # Lo anado en la restriccion i,s
                 constrs2[team * len(self.slots) + s] = 1
 
         return constrs1 + constrs2
@@ -187,12 +185,11 @@ class TTPSolverIPCP:
         cost = self.get_pattern_cost(team, pattern)
         column = self.pattern_to_column(pattern, team)
         sum_duals = dual_vars['Asignacion'] + dual_vars['R']
-        constrs = sum(column[i] * sum_duals[i] for i in range(self.N))
+        constrs = sum(column[i] * sum_duals[i] for i in range(len(column)))
 
         return cost - constrs
 
-    def solve(self):
-        iters = 30
+    def solve(self, iters=30):
         cont = 0
         while cont < iters or not self.best_sol['patterns']:
             self.master_solve()
@@ -207,6 +204,7 @@ class TTPSolverIPCP:
                 if all(var == 1.0 for var in non_zero_vars.values()) and self.master.objVal < self.best_sol['objective']:
                     self.best_sol['objective'] = self.master.objVal
                     self.best_sol['patterns'] = [self.patterns[int(var[2:])] for var in non_zero_vars.keys()]
+                    print('\nINTEGER SOLUTION!\n')
 
                 print('Checking for new patterns...')
 
@@ -226,19 +224,19 @@ class TTPSolverIPCP:
                     for p in gen_patts:
                         self.patterns.append(p)
                         self.add_column(p, t)
-            cont += 1            
+            cont += 1
 
-                    
+
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
 
     n = 4
     dist = generate_distance_matrix(n)
 
-    feas = [(0, 0, 0, 3, 1, 2),
-            (2, 3, 0, 1, 1, 1),
-            (2, 0, 3, 1, 2, 2),
-            (0, 3, 3, 3, 2, 1)]
+    feas = [[3, 0, 0, 0, 1, 2],
+            [1, 3, 0, 2, 1, 1],
+            [1, 0, 3, 2, 2, 2],
+            [3, 3, 3, 0, 2, 1]]
 
     ttp_solver = TTPSolverIPCP(n, dist, 1, 3)
 
