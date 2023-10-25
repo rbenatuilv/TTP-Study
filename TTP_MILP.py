@@ -11,7 +11,6 @@ def TTP(n, D, L, U):
     y = m.addVars(T, T, T, S, vtype=GRB.BINARY, name='y')
     z = m.addVars(T, T, S, vtype=GRB.BINARY, name='z')
     
-    
     m.update()
     
     # R1 ningun equipo juega contrasigo mismo
@@ -37,12 +36,20 @@ def TTP(n, D, L, U):
         quicksum(x[i, j, k + l] for l in range(U + 1) for j in T) <= U
         for i in T for k in range(2 * n - 2 - U)
     )
+    # m.addConstrs(
+    #     quicksum(1 - x[i, j, k + l] for l in range(U + 1) for j in T) <= U
+    #     for i in T for k in range(2 * n - 2 - U)
+    # )
     
     # R4 Cada equipo juega a lo menos L partidos consecutivos y a lo más U partidos consecutivos
     m.addConstrs(
         quicksum(x[i, j, k + l] for l in range(U + 1) for j in T) >= L
         for i in T for k in range(2 * n - 2 - U)
     )
+    # m.addConstrs(
+    #     quicksum(1 - x[i, j, k + l] for l in range(U + 1) for j in T) >= L
+    #     for i in T for k in range(2 * n - 2 - U)
+    # )
     
     # R5 No se pueden jugar dos equipos consecutivos
     m.addConstrs(
@@ -101,20 +108,12 @@ def TTP(n, D, L, U):
     
     
 if __name__ == "__main__":
-    
-    Distancia = [
-        [0, 1, 2, 3],
-        [1, 0, 3, 4],
-        [2, 3, 0, 5],
-        [3, 4, 5, 0]
-    ]
-    D2 = [
-        [0, 4, 2, 3],
-        [4, 0, 6, 7],
-        [2, 6, 0, 5],
-        [3, 7, 5, 0]
-    ]
+    from IP_CP.inst_gen.generator import generate_distance_matrix
+
     N = 4
+    
+    Distancia = generate_distance_matrix(N)
+
     Left = 1
     Right = 3
 

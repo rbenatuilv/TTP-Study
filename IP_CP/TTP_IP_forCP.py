@@ -109,7 +109,7 @@ limit_iteraciones = 1
 for iteracion in range(limit_iteraciones):
     maestro.update()
     maestro.optimize()
-    maestro.write("nomre.lp")
+    maestro.write("nombre.lp")
 
     if maestro.status != GRB.OPTIMAL:
         print("no es optimo!")
