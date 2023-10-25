@@ -1,7 +1,7 @@
 from ortools.sat.python import cp_model
 
 
-class CPPatternGenerator:
+class CPPatternGeneratorH:
     def __init__(self, n_teams: int, lower: int, upper: int):
         self.N = n_teams
         self.S = 2 * n_teams - 2
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     distances = generate_distance_matrix(n)
     ph = []
 
-    generator = CPPatternGenerator(n, 1, 3)
+    generator = CPPatternGeneratorH(n, 1, 3)
 
     home = 4
     patts = []
