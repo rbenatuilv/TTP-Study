@@ -102,9 +102,9 @@ class MIPPatternGenerator:
             for s in self.slots:
                 for j in self.teams:
                     if self.away_play[j, s].X:
-                        HAPattern.append(j + 1)
+                        HAPattern.append(j)
                     elif self.home_play[j, s].X:
-                        HAPattern.append(0)
+                        HAPattern.append(home)
             ans['pattern'] = HAPattern
         else:
             ans['status'] = 'Infeasible'
