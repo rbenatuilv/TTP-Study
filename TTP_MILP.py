@@ -46,19 +46,19 @@ def TTP(n, D, L, U):
         quicksum(x[i, j, k + l] for l in range(U + 1) for j in T) >= L
         for i in T for k in range(2 * n - 2 - U)
     )
-    # m.addConstrs(
-    #     quicksum(1 - x[i, j, k + l] for l in range(U + 1) for j in T) >= L
-    #     for i in T for k in range(2 * n - 2 - U)
-    # )
+    m.addConstrs(
+        quicksum(1 - x[i, j, k + l] for l in range(U + 1) for j in T) >= L
+        for i in T for k in range(2 * n - 2 - U)
+    )
     
     # R5 No se pueden jugar dos equipos consecutivos
-    m.addConstrs(
-        (
-            x[i, j, k] + x[j, i, k] + x[i, j, k + 1] + x[j, i, k + 1] <= 1
-            for i in T for j in T for k in range(2 * n - 3)
-        ),
-        name="R5"
-    )
+    # m.addConstrs(
+    #     (
+    #         x[i, j, k] + x[j, i, k] + x[i, j, k + 1] + x[j, i, k + 1] <= 1
+    #         for i in T for j in T for k in range(2 * n - 3)
+    #     ),
+    #     name="R5"
+    # )
     
     # R6 Variable auxiliar que indica si se juega en home
     m.addConstrs(
@@ -72,7 +72,7 @@ def TTP(n, D, L, U):
         for i in T for j in T for k in S if i != j
     )
     
-    # R8 Definir si t debe ir a i
+    # R8 Definir si t debe ir de i a j
     m.addConstrs(
         y[t, i, j, k] >= z[t, i, k] + z[t, j, k + 1] - 1
         for t in T for i in T for j in T for k in range(2 * n - 3)
