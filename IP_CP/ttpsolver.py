@@ -20,6 +20,7 @@ class TTPSolverIPCP:
         self.sattelite = CPPatternGenerator(n_teams, lower, upper)
 
         self.best_sol = {'objective': float('inf'), 'patterns': []}
+        self.partial_sol = {'objective': float('inf'), 'patterns': [], 'vars': []}
 
         if not self._patterns:
             self.set_initial_patterns()
@@ -189,9 +190,9 @@ class TTPSolverIPCP:
 
         return cost - constrs
 
-    def solve(self, iters=30):
+    def heuristic_solve(self, iters=50):
         cont = 0
-        while cont < iters or not self.best_sol['patterns']:
+        while cont < iters:
             self.master_solve()
 
             if self.master.status == GRB.OPTIMAL:
@@ -205,6 +206,10 @@ class TTPSolverIPCP:
                     self.best_sol['objective'] = self.master.objVal
                     self.best_sol['patterns'] = [self.patterns[int(var[2:])] for var in non_zero_vars.keys()]
                     print('\nINTEGER SOLUTION!\n')
+                
+                else:
+                    self.partial_sol['objective'] = self.master.objVal
+                    self.partial_sol['patterns'] = {(var, val): self.patterns[int(var[2:])] for var, val in non_zero_vars.items()}
 
                 print('Checking for new patterns...')
 
@@ -225,6 +230,23 @@ class TTPSolverIPCP:
                         self.patterns.append(p)
                         self.add_column(p, t)
             cont += 1
+        
+        if self.best_sol['patterns']:
+            print('Integer solution found:')
+            print(f"\nObjVal: {self.best_sol['objective']}")
+            print('Patterns:')
+            for pat in self.best_sol['patterns']:
+                print(pat)
+
+        elif self.partial_sol['patterns']:
+            print('No integer solution found')
+            print(f"\nObjVal: {self.partial_sol['objective']}")
+            print('Patterns:')
+            for key, pat in self.partial_sol['patterns'].items():
+                print(key, pat)
+
+        else:
+            print('No solution found')
 
 
 if __name__ == '__main__':
@@ -240,10 +262,4 @@ if __name__ == '__main__':
 
     ttp_solver = TTPSolverIPCP(n, dist, 1, 3)
 
-    ttp_solver.solve()
-
-    print(f"\nObjVal: {ttp_solver.best_sol['objective']}")
-    print('Patterns:')
-    for pat in ttp_solver.best_sol['patterns']:
-        print(pat)
-
+    ttp_solver.heuristic_solve()
