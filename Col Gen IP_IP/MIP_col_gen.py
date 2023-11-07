@@ -5,22 +5,27 @@ class MIPPatternGenerator:
     def __init__(self, n_teams: int, lower: int, upper: int, distances: list):
         self.N = n_teams
         self.teams = range(n_teams)
-        self.duplicated_teams = range(n_teams)
         self.S = 2 * n_teams - 2
         self.slots = range(2 * n_teams - 2)
         self.lower = lower
         self.upper = upper
         self.D = distances
 
-        self.hashes = []
+        self.hashes_list = []
         self.M = self.N ** self.S
     
     def initialize_variables(self, model):
-        self.home_play = model.addVars(self.teams, self.slots, vtype=GRB.BINARY, name='x')
-        self.away_play = model.addVars(self.teams, self.slots, vtype=GRB.BINARY, name='x')
+        self.home_play = model.addVars(self.teams, self.slots, vtype=GRB.BINARY, name='home')
+        self.away_play = model.addVars(self.teams, self.slots, vtype=GRB.BINARY, name='away')
         self.y = model.addVars(self.teams, self.teams, self.slots, vtype=GRB.BINARY, name='y')
         self.hash = model.addVar(vtype=GRB.INTEGER, name='hash')
-        self.aux_hash = model.addVars(range(len(self.hashes)), vtype=GRB.BINARY, name='aux_hash')
+
+        self.aux_hash = {}
+        for i, h in enumerate(self.hashes_list):
+            self.aux_hash[i] = model.addVar(lb=0, ub=1,vtype=GRB.INTEGER, name=f'aux_hash_{h}')
+
+        if self.hashes_list:
+            self.M = max(self.hashes_list)
         
     def initialize_constraints(self, model, home):
         # R1 ningun equipo juega contrasigo mismo
@@ -88,13 +93,13 @@ class MIPPatternGenerator:
         )
 
         # Hashes
-        # TODO: PQ NO FUNCIONA ESTO
+        # TODO: PQ NO FUNCIONA ESTO??? RESUELTO!!!! Era un problema de aproximación por uso de numeros grandes
         model.addConstr(
-            self.hash == quicksum(self.away_play[j, s] * j ** s for j in self.teams for s in self.slots)
+            self.hash == quicksum(self.away_play[j, s] * j * self.N ** s for j in self.teams for s in self.slots)
         )
-        for i, h in enumerate(self.hashes):
+        for i, h in enumerate(self.hashes_list):
             model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
-            model.addConstr(self.aux_hash[i] >= h + 1 - self.M * (1 - self.aux_hash[i]))
+            model.addConstr(self.hash >= h + 1 - self.M * (1 - self.aux_hash[i]))
         
         model.setObjective(
             quicksum(self.away_play[j, 1] * self.D[home][j] for j in self.teams) 
@@ -104,8 +109,7 @@ class MIPPatternGenerator:
         )
 
         model.update()
-   
-    
+
     def single_solve(self, home):
         model = Model()
         model.setParam('OutputFlag', 0)
@@ -123,8 +127,10 @@ class MIPPatternGenerator:
                     elif self.home_play[j, s].X:
                         HAPattern.append(home)
 
-            self.hashes.append(self.hash.X)
+            # self.hashes_list.append(int(self.hash.X))
             ans['pattern'] = tuple(HAPattern)
+            self.hashes_list.append(int(self.hash.X))
+
         else:
             ans['status'] = 'Infeasible'
             print('No solution found.')
@@ -143,14 +149,13 @@ if __name__ == '__main__':
 
     home = 4
     patts = []
-    iters = 12
+    iters = 15
 
     start = time.time()
     for _ in range(iters):
         ans = generator.single_solve(home)
         print(ans)
-        print("yahoooo")
 
     end = time.time()
 
-    print(end - start)
+    # print(end - start)
