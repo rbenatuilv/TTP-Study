@@ -2,8 +2,9 @@ from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
 from cpgenerator_heuristic import CPPatternGeneratorH
 from MIP_col_gen import MIPPatternGenerator
-from time import time, sleep
-from threading import Thread, Event
+from time import time
+from threading import Thread
+
 
 class TTPSolverIPIP:
     def __init__(self, n_teams: int, distances: list, lower: int, upper: int, patterns=[]):
@@ -158,11 +159,6 @@ class TTPSolverIPIP:
         
         return gen_patts
     
-    def sattelite_solve(self, home, pool_size=10):
-        duals_vars = self.get_master_duals()
-        for _ in range(pool_size):
-            ans = self.sattelite.single_solve()
-    
     def get_master_duals(self):
         dual_vars = dict()
         dual_vars['Asignacion'] = [self.master.getConstrByName(f"Asignacion_{t}").Pi
@@ -172,7 +168,7 @@ class TTPSolverIPIP:
 
         for t in self.teams:
             for s in self.slots:
-                dual_vars['R'].append(self.master.getConstrByName(f"R_{t}_{s}").Pi) 
+                dual_vars['R'].append(self.master.getConstrByName(f"R_{t}_{s}").Pi)
 
         return dual_vars
     
@@ -241,13 +237,9 @@ class TTPSolverIPIP:
                 for t in self.teams:
                     dictionary = self.sattelite.single_solve(t, duals['Asignacion'] + duals['R'])
                     if dictionary['status'] == "Feasible" and dictionary['obj_val'] < 0:
-                        print(f"Satellite founded pattern for {t}")
                         optimal = False
                         self.patterns.append(dictionary['pattern'])
                         self.add_column(dictionary['pattern'], t)
-                    if dictionary['status'] != "Feasible":
-                        print("Satellite founded infeasible solution")
-                    if dictionary['status'] == "" and dictionary['obj_val']
 
                 self.optimal = optimal
 
@@ -261,16 +253,14 @@ class TTPSolverIPIP:
 
             self.iterations += 1
 
-        
-
-    def solve(self, timeout=5):
+    def solve(self, timeout=3600):
 
         solve_thread = Thread(target=self.solve_alg, daemon=True)
         solve_thread.start()
 
         solve_thread.join(timeout=timeout)
         if solve_thread.is_alive():
-            print('TIMEOUT')
+            print('\nTIMEOUT')
             self.master.terminate()
 
         stop = time()
@@ -291,7 +281,7 @@ class TTPSolverIPIP:
             print('\nSUB OPTIMAL SOL!')
 
         if self.best_sol['patterns']:
-            print('Integer solution found:')
+            print('\nInteger solution found:')
             print(f"\nObjVal: {self.best_sol['objective']}")
             print('Patterns:')
             for pat in self.best_sol['patterns']:
@@ -380,4 +370,4 @@ if __name__ == '__main__':
 
     ttp_solver = TTPSolverIPIP(n, dist, 1, 3)
 
-    ttp_solver.solve()
+    ttp_solver.solve(timeout=120)
