@@ -3,6 +3,7 @@ from gurobipy import quicksum
 from cpgenerator_heuristic import CPPatternGeneratorH
 from cpgenerator import CPPatternGenerator
 from time import time
+from threading import Thread
 
 
 class TTPSolverIPCP:
@@ -25,8 +26,13 @@ class TTPSolverIPCP:
         self.best_sol = {'objective': float('inf'), 'patterns': []}
         self.partial_sol = {'objective': float('inf'), 'patterns': [], 'vars': []}
 
+        self.start_time = None
         self.elapsed_time = None
+
+        self.optimal = False
         self.solved = False
+        self.timeout = False
+        self.iterations = 0
 
         if not self._patterns:
             self.set_initial_patterns()
@@ -200,12 +206,12 @@ class TTPSolverIPCP:
 
         return cost - constrs
 
-    def solve_alg(self, iters=1000):
+    def solve_alg(self):
         self.optimal = False
-        iterations = 0
-        start = time()
+        self.iterations = 0
+        self.start_time = time()
 
-        while iterations < iters and not self.optimal:
+        while not self.optimal:
             self.master_solve()
 
             if self.master.status == GRB.OPTIMAL:
@@ -245,20 +251,26 @@ class TTPSolverIPCP:
                         self.patterns.append(p)
                         self.add_column(p, t)
 
-            iterations += 1
+            self.iterations += 1
+
+        
+
+    def solve(self, timeout=3600):
+
+        solve_thread = Thread(target=self.solve_alg, daemon=True)
+        solve_thread.start()
+
+        solve_thread.join(timeout=timeout)
+        if solve_thread.is_alive():
+            print('\nTIMEOUT')
+            self.master.terminate()
 
         stop = time()
-        self.elapsed_time = stop - start
+        self.elapsed_time = stop - self.start_time
 
-    def solve(self, iters=1000):
-        try:
-            self.solve_alg(iters)
-        except KeyboardInterrupt:
-            print('\nINTERRUPTED BY USER.')
-            self.elapsed_time = time() - self.start
-        finally:
-            self.print_results()
-            # TODO: Save results in file
+        self.print_results()
+
+        print(f'\nElapsed time: {self.elapsed_time}')
             
     def print_results(self):
         if not self.solved:
@@ -271,7 +283,7 @@ class TTPSolverIPCP:
             print('\nSUB OPTIMAL SOL!')
 
         if self.best_sol['patterns']:
-            print('Integer solution found:')
+            print('\nInteger solution found:')
             print(f"\nObjVal: {self.best_sol['objective']}")
             print('Patterns:')
             for pat in self.best_sol['patterns']:
@@ -348,7 +360,7 @@ class TTPSolverIPCP:
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
 
-    n = 6
+    n = 4
     dist = generate_distance_matrix(n)
 
     feas = [
@@ -360,4 +372,4 @@ if __name__ == '__main__':
 
     ttp_solver = TTPSolverIPCP(n, dist, 1, 3)
 
-    ttp_solver.solve()
+    ttp_solver.solve(timeout=120)

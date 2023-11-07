@@ -151,7 +151,6 @@ class MIPPatternGenerator:
 
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
-    from inst_gen.print_aux import matrix_print
     import time
 
     n = 6
