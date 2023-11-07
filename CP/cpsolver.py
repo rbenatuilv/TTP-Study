@@ -2,7 +2,7 @@ from ortools.sat.python import cp_model
 from inst_gen.generator import generate_distance_matrix
 
 
-N = 4
+N = 6
 S = 2 * N - 2
 L = 1
 U = 3

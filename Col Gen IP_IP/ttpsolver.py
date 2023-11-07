@@ -1,6 +1,6 @@
 from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
-from cpgenerator import CPPatternGenerator
+from MIPPatternGenerator import MIP_col_gen
 
 
 class TTPSolverIPCP:
@@ -17,7 +17,7 @@ class TTPSolverIPCP:
 
         self.master = Model()
         self.master.Params.OutputFlag = 0
-        self.sattelite = CPPatternGenerator(n_teams, lower, upper)
+        self.sattelite = MIPPatternGenerator(n_teams, lower, upper)
 
         self.best_sol = {'objective': float('inf'), 'patterns': []}
 
