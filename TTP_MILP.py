@@ -108,7 +108,7 @@ def TTP(n, D, L, U):
     
     
 if __name__ == "__main__":
-    from IP_CP.inst_gen.generator import generate_distance_matrix
+    from ColGenIP_CP.inst_gen.generator import generate_distance_matrix
 
     N = 4
     
