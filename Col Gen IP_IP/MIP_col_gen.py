@@ -2,20 +2,27 @@ from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
 
 class MIPPatternGenerator:
-    def __init__(self, n_teams: int, lower: int, upper: int, ):
+    def __init__(self, n_teams: int, lower: int, upper: int, distances: list):
         self.N = n_teams
         self.teams = range(n_teams)
         self.duplicated_teams = range(n_teams)
+        self.S = 2 * n_teams - 2
         self.slots = range(2 * n_teams - 2)
         self.lower = lower
         self.upper = upper
+        self.D = distances
+
+        self.hashes = []
+        self.M = self.N ** self.S
     
-    def initialize_variables(self, model, home):
+    def initialize_variables(self, model):
         self.home_play = model.addVars(self.teams, self.slots, vtype=GRB.BINARY, name='x')
         self.away_play = model.addVars(self.teams, self.slots, vtype=GRB.BINARY, name='x')
         self.y = model.addVars(self.teams, self.teams, self.slots, vtype=GRB.BINARY, name='y')
+        self.hash = model.addVar(vtype=GRB.INTEGER, name='hash')
+        self.aux_hash = model.addVars(range(len(self.hashes)), vtype=GRB.BINARY, name='aux_hash')
         
-    def initilize_constraints(self, model, home, D):
+    def initialize_constraints(self, model, home):
         # R1 ningun equipo juega contrasigo mismo
         model.addConstrs(
             self.home_play[home, s] + self.away_play[home, s] == 0 
@@ -79,21 +86,31 @@ class MIPPatternGenerator:
             self.y[i, home, s] >= self.away_play[i, s] + self.home_play[j, s + 1] - 1
             for i in self.teams for j in self.teams for s in range(2 * self.N - 3)
         )
+
+        # Hashes
+        # TODO: PQ NO FUNCIONA ESTO
+        model.addConstr(
+            self.hash == quicksum(self.away_play[j, s] * j ** s for j in self.teams for s in self.slots)
+        )
+        for i, h in enumerate(self.hashes):
+            model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
+            model.addConstr(self.aux_hash[i] >= h + 1 - self.M * (1 - self.aux_hash[i]))
         
         model.setObjective(
-            quicksum(self.away_play[j, 1] * D[home][j] for j in self.teams) 
-            + quicksum(self.y[i, j, s] * D[i][j] for i in self.teams for j in self.teams for s in range(2 * self.N - 2))
-            + quicksum(self.away_play[j, 2 * self.N - 3] * D[j][home] for j in self.teams)        
+            quicksum(self.away_play[j, 1] * self.D[home][j] for j in self.teams) 
+            + quicksum(self.y[i, j, s] * self.D[i][j] for i in self.teams for j in self.teams for s in range(2 * self.N - 2))
+            + quicksum(self.away_play[j, 2 * self.N - 3] * self.D[j][home] for j in self.teams)        
             , GRB.MINIMIZE
         )
 
         model.update()
    
     
-    def single_solve(self, home, distances):
+    def single_solve(self, home):
         model = Model()
-        self.initialize_variables(model, home)
-        self.initilize_constraints(model, home, distances)
+        model.setParam('OutputFlag', 0)
+        self.initialize_variables(model)
+        self.initialize_constraints(model, home)
         model.optimize()
         ans = dict()
         if model.status == GRB.OPTIMAL:
@@ -102,10 +119,12 @@ class MIPPatternGenerator:
             for s in self.slots:
                 for j in self.teams:
                     if self.away_play[j, s].X:
-                        HAPattern.append(j + 1)
+                        HAPattern.append(j)
                     elif self.home_play[j, s].X:
-                        HAPattern.append(0)
-            ans['pattern'] = HAPattern
+                        HAPattern.append(home)
+
+            self.hashes.append(self.hash.X)
+            ans['pattern'] = tuple(HAPattern)
         else:
             ans['status'] = 'Infeasible'
             print('No solution found.')
@@ -120,15 +139,15 @@ if __name__ == '__main__':
     distances = generate_distance_matrix(n)
     ph = []
 
-    generator = MIPPatternGenerator(n, 1, 3)
+    generator = MIPPatternGenerator(n, 1, 3, distances)
 
     home = 4
     patts = []
-    iters = 1
+    iters = 12
 
     start = time.time()
     for _ in range(iters):
-        ans = generator.single_solve(home, distances)
+        ans = generator.single_solve(home)
         print(ans)
         print("yahoooo")
 
