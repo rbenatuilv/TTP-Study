@@ -1,9 +1,11 @@
 from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
-from MIPPatternGenerator import MIP_col_gen
+from cpgenerator_heuristic import CPPatternGeneratorH
+from MIP_col_gen import MIPPatternGenerator
+from time import time
 
 
-class TTPSolverIPCP:
+class TTPSolverIPIP:
     def __init__(self, n_teams: int, distances: list, lower: int, upper: int, patterns=[]):
         self.N = n_teams
         self.teams = range(n_teams)
@@ -17,9 +19,14 @@ class TTPSolverIPCP:
 
         self.master = Model()
         self.master.Params.OutputFlag = 0
-        self.sattelite = MIPPatternGenerator(n_teams, lower, upper)
+        self.heur_sattelite = CPPatternGeneratorH(n_teams, lower, upper)
+        self.sattelite = MIPPatternGenerator(n_teams, lower, upper, distances)
 
         self.best_sol = {'objective': float('inf'), 'patterns': []}
+        self.partial_sol = {'objective': float('inf'), 'patterns': [], 'vars': []}
+
+        self.elapsed_time = None
+        self.solved = False
 
         if not self._patterns:
             self.set_initial_patterns()
@@ -50,7 +57,7 @@ class TTPSolverIPCP:
     def set_initial_patterns(self):
         self.patterns = []
         for i in self.teams:
-            ans = self.sattelite.single_solve(i, [])
+            ans = self.heur_sattelite.single_solve(i, [])
             if ans['status'] == 'Feasible':
                 self.patterns.append(ans['pattern'])
 
@@ -59,7 +66,8 @@ class TTPSolverIPCP:
         for t in self.teams:
             p_t[t] = set()
             for p in range(len(self.patterns)):
-                home_counts = sum(self.patterns[p][s] == t for s in self.slots)
+                home_counts = sum(self.patterns[p][s] == t 
+                                  for s in self.slots)
                 if  home_counts == self.N - 1:
                     p_t[t].add(p)
 
@@ -121,7 +129,7 @@ class TTPSolverIPCP:
             self.master.addConstr(quicksum(self.x[i] 
                                            for i in self.team_patterns[t]) == 1,
                                            f"Asignacion_{t}")
-    
+
     def set_objective(self):
         self.master.setObjective(quicksum(self.x[i] * self.costs[i] 
                                           for i in range(len(self.patterns))), 
@@ -134,11 +142,11 @@ class TTPSolverIPCP:
         self.master.update()
         self.master.optimize()
 
-    def sattelite_solve(self, home, pool_size=10):
+    def heur_sattelite_solve(self, home, pool_size=10):
         patt_hashes = [self.pattern_hash(self.patterns[p]) for p in self.team_patterns[home]]
         gen_patts = []
         for _ in range(pool_size):
-            ans = self.sattelite.single_solve(home, patt_hashes)
+            ans = self.heur_sattelite.single_solve(home, patt_hashes)
             if ans['status'] == 'Feasible':
                 gen_patts.append(ans['pattern'])
                 patt_hashes.append(ans['hash'])
@@ -155,6 +163,7 @@ class TTPSolverIPCP:
         for t in self.teams:
             for s in self.slots:
                 dual_vars['R'].append(self.master.getConstrByName(f"R_{t}_{s}").Pi)
+
         return dual_vars
     
     def pattern_to_column(self, pattern, team):
@@ -172,13 +181,15 @@ class TTPSolverIPCP:
     def add_column(self, pattern, team):
         column = self.pattern_to_column(pattern, team)
         
-        self.x.append(self.master.addVar(obj=self.get_pattern_cost(team, pattern), 
+        self.x.append(self.master.addVar(
+                           obj=self.get_pattern_cost(team, pattern), 
                            column=Column(column, self.master.getConstrs()),
                            name=f'x_{len(self.x)}',
                            vtype=GRB.CONTINUOUS,
-                           lb=0, ub=1)
+                           lb=0, ub=1
+                           )
                         )
-        
+
         self.master.update()
 
     def get_reduced_cost(self, pattern, team, dual_vars):
@@ -189,13 +200,99 @@ class TTPSolverIPCP:
 
         return cost - constrs
 
-    def solve(self, iters=30):
-        cont = 0
-        while cont < iters or not self.best_sol['patterns']:
+    def solve_alg(self, iters=1000):
+        self.optimal = False
+        iterations = 0
+        start = time()
+
+        while iterations < iters and not self.optimal:
             self.master_solve()
 
             if self.master.status == GRB.OPTIMAL:
-                print('Optimal solution found')
+                self.solved = True
+                print(f'Optimal solution found: ObjVal: {self.master.objVal}')
+                non_zero_vars = {var.VarName: var.X 
+                                 for var in self.master.getVars() if var.X != 0}
+
+                if all(var == 1.0 for var in non_zero_vars.values()) and self.master.objVal < self.best_sol['objective']:
+                    self.best_sol['objective'] = self.master.objVal
+                    self.best_sol['patterns'] = [self.patterns[int(var[2:])] 
+                                                 for var in non_zero_vars.keys()]
+                    print('\nINTEGER SOLUTION!\n')
+
+                else:
+                    self.partial_sol['objective'] = self.master.objVal
+                    self.partial_sol['patterns'] = {(var, val): self.patterns[int(var[2:])] 
+                                                    for var, val in non_zero_vars.items()}
+
+                duals = self.get_master_duals()
+
+                optimal = True
+                for t in self.teams:
+                    dictionary = self.sattelite.single_solve(t, duals['Asignacion'] + duals['R'])
+                    if dictionary['status'] == "Feasible" and dictionary['obj_val'] < 0:
+                        optimal = False
+                        self.patterns.append(dictionary['pattern'])
+                        self.add_column(dictionary['pattern'], t)
+
+                self.optimal = optimal
+
+            if self.master.status == GRB.INFEASIBLE:
+                print("Infeasible master problem")
+                for t in self.teams:
+                    gen_patts = self.heur_sattelite_solve(t)
+                    for p in gen_patts:
+                        self.patterns.append(p)
+                        self.add_column(p, t)
+
+            iterations += 1
+
+        stop = time()
+        self.elapsed_time = stop - start
+
+    def solve(self, iters=1000):
+        try:
+            self.solve_alg(iters)
+        except KeyboardInterrupt:
+            print('\nINTERRUPTED BY USER.')
+            self.elapsed_time = time() - self.start
+        finally:
+            self.print_results()
+            # TODO: Save results in file
+            
+    def print_results(self):
+        if not self.solved:
+            print('No solution found')
+            return
+        
+        if self.optimal:
+                print('\nOPTIMAL SOL!')
+        else:
+            print('\nSUB OPTIMAL SOL!')
+
+        if self.best_sol['patterns']:
+            print('Integer solution found:')
+            print(f"\nObjVal: {self.best_sol['objective']}")
+            print('Patterns:')
+            for pat in self.best_sol['patterns']:
+                print(pat)
+        else:
+            print('\nNo integer solution found.')
+
+        if self.partial_sol['patterns']:
+            print('\nPartial solution found:')
+            print(f"\nObjVal: {self.partial_sol['objective']}")
+            print('Patterns:')
+            for key, pat in self.partial_sol['patterns'].items():
+                print(key, pat)
+
+    def heuristic_solve(self, iters=50):
+        cont = 0
+        while cont < iters:
+            self.master_solve()
+
+            if self.master.status == GRB.OPTIMAL:
+                print(f'Optimal solution found: ObjVal: {self.master.objVal}')
 
                 # Check if the non-zero variables are all equal to one, and save the solution
                 non_zero_vars = {var.VarName: var.X 
@@ -206,12 +303,16 @@ class TTPSolverIPCP:
                     self.best_sol['patterns'] = [self.patterns[int(var[2:])] for var in non_zero_vars.keys()]
                     print('\nINTEGER SOLUTION!\n')
 
+                else:
+                    self.partial_sol['objective'] = self.master.objVal
+                    self.partial_sol['patterns'] = {(var, val): self.patterns[int(var[2:])] for var, val in non_zero_vars.items()}
+
                 print('Checking for new patterns...')
 
                 duals = self.get_master_duals()
 
                 for t in self.teams:
-                    gen_patts = self.sattelite_solve(t)
+                    gen_patts = self.heur_sattelite_solve(t)
                     for p in gen_patts:
                         if self.get_reduced_cost(p, t, duals) < 0:
                             self.patterns.append(p)
@@ -220,30 +321,43 @@ class TTPSolverIPCP:
             if self.master.status == GRB.INFEASIBLE:
                 print("Infeasible master problem")
                 for t in self.teams:
-                    gen_patts = self.sattelite_solve(t)
+                    gen_patts = self.heur_sattelite_solve(t)
                     for p in gen_patts:
                         self.patterns.append(p)
                         self.add_column(p, t)
             cont += 1
+        
+        if self.best_sol['patterns']:
+            print('Integer solution found:')
+            print(f"\nObjVal: {self.best_sol['objective']}")
+            print('Patterns:')
+            for pat in self.best_sol['patterns']:
+                print(pat)
+
+        elif self.partial_sol['patterns']:
+            print('No integer solution found')
+            print(f"\nObjVal: {self.partial_sol['objective']}")
+            print('Patterns:')
+            for key, pat in self.partial_sol['patterns'].items():
+                print(key, pat)
+
+        else:
+            print('No solution found')
 
 
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
 
-    n = 4
+    n = 6
     dist = generate_distance_matrix(n)
 
-    feas = [[3, 0, 0, 0, 1, 2],
-            [1, 3, 0, 2, 1, 1],
-            [1, 0, 3, 2, 2, 2],
-            [3, 3, 3, 0, 2, 1]]
+    feas = [
+        [3, 0, 0, 0, 1, 2],
+        [1, 3, 0, 2, 1, 1],
+        [1, 0, 3, 2, 2, 2],
+        [3, 3, 3, 0, 2, 1]
+    ]
 
-    ttp_solver = TTPSolverIPCP(n, dist, 1, 3)
+    ttp_solver = TTPSolverIPIP(n, dist, 1, 3)
 
     ttp_solver.solve()
-
-    print(f"\nObjVal: {ttp_solver.best_sol['objective']}")
-    print('Patterns:')
-    for pat in ttp_solver.best_sol['patterns']:
-        print(pat)
-
