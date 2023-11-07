@@ -153,6 +153,11 @@ class TTPSolverIPIP:
         
         return gen_patts
     
+    def sattelite_solve(self, home, pool_size=10):
+        duals_vars = self.get_master_duals()
+        for _ in range(pool_size):
+            ans = self.sattelite.single_solve()
+    
     def get_master_duals(self):
         dual_vars = dict()
         dual_vars['Asignacion'] = [self.master.getConstrByName(f"Asignacion_{t}").Pi
@@ -162,7 +167,7 @@ class TTPSolverIPIP:
 
         for t in self.teams:
             for s in self.slots:
-                dual_vars['R'].append(self.master.getConstrByName(f"R_{t}_{s}").Pi)
+                dual_vars['R'].append(self.master.getConstrByName(f"R_{t}_{s}").Pi) 
 
         return dual_vars
     
@@ -231,9 +236,13 @@ class TTPSolverIPIP:
                 for t in self.teams:
                     dictionary = self.sattelite.single_solve(t, duals['Asignacion'] + duals['R'])
                     if dictionary['status'] == "Feasible" and dictionary['obj_val'] < 0:
+                        print(f"Satellite founded pattern for {t}")
                         optimal = False
                         self.patterns.append(dictionary['pattern'])
                         self.add_column(dictionary['pattern'], t)
+                    if dictionary['status'] != "Feasible":
+                        print("Satellite founded infeasible solution")
+                    if dictionary['status'] == "" and dictionary['obj_val']
 
                 self.optimal = optimal
 
@@ -348,7 +357,7 @@ class TTPSolverIPIP:
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
 
-    n = 6
+    n = 4
     dist = generate_distance_matrix(n)
 
     feas = [

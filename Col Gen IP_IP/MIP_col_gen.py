@@ -27,7 +27,7 @@ class MIPPatternGenerator:
         if self.hashes_list:
             self.M = max(self.hashes_list)
         
-    def initialize_constraints(self, model, home):
+    def initialize_constraints(self, model, home, pi):
         # R1 ningun equipo juega contrasigo mismo
         model.addConstrs(
             self.home_play[home, s] + self.away_play[home, s] == 0 
@@ -102,19 +102,31 @@ class MIPPatternGenerator:
             model.addConstr(self.hash >= h + 1 - self.M * (1 - self.aux_hash[i]))
         
         model.setObjective(
-            quicksum(self.away_play[j, 1] * self.D[home][j] for j in self.teams) 
-            + quicksum(self.y[i, j, s] * self.D[i][j] for i in self.teams for j in self.teams for s in range(2 * self.N - 2))
-            + quicksum(self.away_play[j, 2 * self.N - 3] * self.D[j][home] for j in self.teams)        
+            quicksum(self.y[i, j, s] for i in self.teams for j in self.teams for s in self.slots) 
+            + quicksum(self.away_play[j, 0] for j in self.teams)  
+            + quicksum(self.away_play[j, 2 * self.N - 3] for j in self.teams)
+            - quicksum((pi[self.N + home * len(self.slots) + (s - 1)] 
+                + pi[self.N + (t - self.N) * len(self.slots) + (s - 1)]) * self.away_play[t, s]
+                for s in self.slots for t in self.teams
+            ) 
+            - pi[home]
             , GRB.MINIMIZE
         )
+        
+        # model.setObjective(
+        #     quicksum(self.away_play[j, 1] * distances[home][j] for j in self.teams) 
+        #     + quicksum(self.y[i, j, s] * distances[i][j] for i in self.teams for j in self.teams for s in range(2 * self.N - 2))
+        #     + quicksum(self.away_play[j, 2 * self.N - 3] * distances[j][home] for j in self.teams)        
+        #     , GRB.MINIMIZE
+        # )
 
         model.update()
 
-    def single_solve(self, home):
+    def single_solve(self, home, pi):
         model = Model()
         model.setParam('OutputFlag', 0)
         self.initialize_variables(model)
-        self.initialize_constraints(model, home)
+        self.initialize_constraints(model, home, pi)
         model.optimize()
         ans = dict()
         if model.status == GRB.OPTIMAL:
@@ -130,7 +142,8 @@ class MIPPatternGenerator:
             # self.hashes_list.append(int(self.hash.X))
             ans['pattern'] = tuple(HAPattern)
             self.hashes_list.append(int(self.hash.X))
-
+            ans['obj_val'] = model.ObjVal
+            
         else:
             ans['status'] = 'Infeasible'
             print('No solution found.')
@@ -153,7 +166,7 @@ if __name__ == '__main__':
 
     start = time.time()
     for _ in range(iters):
-        ans = generator.single_solve(home)
+        ans = generator.single_solve(home, distances)
         print(ans)
 
     end = time.time()
