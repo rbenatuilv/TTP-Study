@@ -2,8 +2,8 @@ from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
 from cpgenerator_heuristic import CPPatternGeneratorH
 from MIP_col_gen import MIPPatternGenerator
-from time import time
-
+from time import time, sleep
+from threading import Thread, Event
 
 class TTPSolverIPIP:
     def __init__(self, n_teams: int, distances: list, lower: int, upper: int, patterns=[]):
@@ -25,8 +25,13 @@ class TTPSolverIPIP:
         self.best_sol = {'objective': float('inf'), 'patterns': []}
         self.partial_sol = {'objective': float('inf'), 'patterns': [], 'vars': []}
 
+        self.start_time = None
         self.elapsed_time = None
+
+        self.optimal = False
         self.solved = False
+        self.timeout = False
+        self.iterations = 0
 
         if not self._patterns:
             self.set_initial_patterns()
@@ -200,12 +205,12 @@ class TTPSolverIPIP:
 
         return cost - constrs
 
-    def solve_alg(self, iters=1000):
+    def solve_alg(self):
         self.optimal = False
-        iterations = 0
-        start = time()
+        self.iterations = 0
+        self.start_time = time()
 
-        while iterations < iters and not self.optimal:
+        while not self.optimal:
             self.master_solve()
 
             if self.master.status == GRB.OPTIMAL:
@@ -245,20 +250,26 @@ class TTPSolverIPIP:
                         self.patterns.append(p)
                         self.add_column(p, t)
 
-            iterations += 1
+            self.iterations += 1
+
+        
+
+    def solve(self, timeout=5):
+
+        solve_thread = Thread(target=self.solve_alg, daemon=True)
+        solve_thread.start()
+
+        solve_thread.join(timeout=timeout)
+        if solve_thread.is_alive():
+            print('TIMEOUT')
+            self.master.terminate()
 
         stop = time()
-        self.elapsed_time = stop - start
+        self.elapsed_time = stop - self.start_time
 
-    def solve(self, iters=1000):
-        try:
-            self.solve_alg(iters)
-        except KeyboardInterrupt:
-            print('\nINTERRUPTED BY USER.')
-            self.elapsed_time = time() - self.start
-        finally:
-            self.print_results()
-            # TODO: Save results in file
+        self.print_results()
+
+        print(f'\nElapsed time: {self.elapsed_time}')
             
     def print_results(self):
         if not self.solved:
@@ -348,7 +359,7 @@ class TTPSolverIPIP:
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
 
-    n = 6
+    n = 4
     dist = generate_distance_matrix(n)
 
     feas = [
