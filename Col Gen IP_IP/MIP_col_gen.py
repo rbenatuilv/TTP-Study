@@ -99,8 +99,8 @@ class MIPPatternGenerator:
             self.hash == quicksum(self.away_play[j, s] * (j + 1) * (self.N + 1) ** s for j in self.teams for s in self.slots)
         )
         for i, h in enumerate(self.hashes_dict[home]):
-            model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
-            model.addConstr(self.hash >= h + 1 - self.M * (1 - self.aux_hash[i]))
+            model.addConstr(self.hash * self.aux_hash[i] <= h - 1)
+            model.addConstr(self.hash >= (h + 1) * (1 - self.aux_hash[i]))
 
         model.update()
 
@@ -110,9 +110,6 @@ class MIPPatternGenerator:
             quicksum([self.D[i][j] * self.y[i, j, s] for i in self.teams for j in self.teams for s in self.slots]) 
             + quicksum([self.D[home][j] * self.away_play[j, self.slots[0]] for j in self.teams])  
             + quicksum([self.D[j][home] * self.away_play[j, self.slots[-1]] for j in self.teams])
-            # - quicksum([pi[self.N + t * len(self.slots) + s] * self.away_play[t, s] for t in self.teams for s in self.slots])
-            # - quicksum([pi[self.N + home * len(self.slots) + s] * self.home_play[t, s] for t in self.teams for s in self.slots])
-            # - pi[home]
             - quicksum((pi[self.N + home * len(self.slots) + s] 
                 + pi[self.N + t * len(self.slots) + s]) * (self.away_play[t, s])
                 for s in self.slots for t in self.teams
@@ -137,9 +134,9 @@ class MIPPatternGenerator:
             HAPattern = []
             for s in self.slots:
                 for j in self.teams:
-                    if self.away_play[j, s].X:
+                    if self.away_play[j, s].X > 0.5:
                         HAPattern.append(j)
-                    elif self.home_play[j, s].X:
+                    elif self.home_play[j, s].X > 0.5:
                         HAPattern.append(home)
 
             ans['pattern'] = tuple(HAPattern)
@@ -155,7 +152,7 @@ class MIPPatternGenerator:
 
         return ans
     
-    def single_heur_solve(self, home):
+    def single_gen_solve(self, home):
         model = Model()
         model.setParam('OutputFlag', 0)
         self.initialize_variables(model, home)
@@ -166,11 +163,12 @@ class MIPPatternGenerator:
         if model.status == GRB.OPTIMAL:
             ans['status'] = 'Feasible'
             HAPattern = []
+            
             for s in self.slots:
                 for j in self.teams:
-                    if self.away_play[j, s].X:
+                    if self.away_play[j, s].X > 0.5:
                         HAPattern.append(j)
-                    elif self.home_play[j, s].X:
+                    elif self.home_play[j, s].X > 0.5:
                         HAPattern.append(home)
 
             ans['pattern'] = tuple(HAPattern)
@@ -184,19 +182,22 @@ if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
     import time
 
-    n = 6
+    n = 4
     distances = generate_distance_matrix(n)
     ph = []
 
     generator = MIPPatternGenerator(n, 1, 3, distances)
 
-    home = 4
+    home = 2
     patts = []
-    iters = 15
-
+    iters = 121
+    
+    patterns = set()
+    
     start = time.time()
     for _ in range(iters):
-        ans = generator.single_heur_solve(home)
+        ans = generator.single_gen_solve(home)
+        print(generator.hashes_dict[home][-1])
         print(ans)
 
     end = time.time()

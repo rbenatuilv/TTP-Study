@@ -6,6 +6,7 @@ def TTP(n, D, L, U):
     S = range(2*n - 2)
     
     m = Model()
+    m.setParam('OutputFlag', False)
     
     x = m.addVars(T, T, S, vtype=GRB.BINARY, name='x')
     y = m.addVars(T, T, T, S, vtype=GRB.BINARY, name='y')
