@@ -1,13 +1,11 @@
 from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
-from cpgenerator_heuristic import CPPatternGeneratorH
-from MIP_col_gen import MIPPatternGenerator
 from time import time
 from threading import Thread
 
 
-class TTPSolverIPIP:
-    def __init__(self, n_teams: int, distances: list, lower: int, upper: int, patterns=[]):
+class TTPMaster:
+    def __init__(self, n_teams: int, distances: list, lower: int, upper: int, satt, patterns=[]):
         self.N = n_teams
         self.teams = range(n_teams)
         self.slots = range(2 * n_teams - 2)
@@ -20,7 +18,7 @@ class TTPSolverIPIP:
 
         self.master = Model()
         self.master.Params.OutputFlag = 0
-        self.sattelite = MIPPatternGenerator(n_teams, lower, upper, distances)
+        self.sattelite = satt(n_teams, lower, upper, distances)
 
         self.best_sol = {'objective': float('inf'), 'patterns': []}
         self.partial_sol = {'objective': float('inf'), 'patterns': [], 'vars': []}
@@ -60,11 +58,11 @@ class TTPSolverIPIP:
         self.set_away_patterns()
 
     def set_initial_patterns(self):
-        self._patterns = []
+        self.patterns = []
         for i in self.teams:
             ans = self.sattelite.single_gen_solve(i)
             if ans['status'] == 'Feasible':
-                self._patterns.append(ans['pattern'])
+                self.patterns.append(ans['pattern'])
 
     def set_team_patterns(self):
         p_t = dict() 
@@ -235,7 +233,6 @@ class TTPSolverIPIP:
                         self.add_column(dictionary['pattern'], t)
                     elif dictionary['status'] == "Infeasible":
                         optimal = False
-                        print('AAA')
 
                 self.optimal = optimal
 
@@ -265,27 +262,6 @@ class TTPSolverIPIP:
         self.print_results()
 
         print(f'\nElapsed time: {self.elapsed_time}')
-        
-    def integer_solving(self, timeout=3600):
-        model = Model()
-        x = [model.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
-                  for i in range(len(self.patterns))]
-        for t in self.teams: 
-            for s in self.slots:
-                model.addConstr(
-                    (quicksum(x[i] for i in self.home_t_s[t, s]) 
-                     + quicksum(x[i] for i in self.away_t_s[t, s]) == 1),
-                    name=f"R_{t}_{s}"
-                )
-
-        for t in self.teams:
-            model.addConstr(
-                quicksum(x[i] for i in self.team_patterns[t]) == 1,
-                f"Asignacion_{t}"
-            )
-        
-
-        
             
     def print_results(self):
         if not self.solved:
@@ -313,31 +289,9 @@ class TTPSolverIPIP:
             for key, pat in self.partial_sol['patterns'].items():
                 print(key, pat)
 
+    def set_int_vars(self):
+        self.x = [self.master.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
+                  for i in range(len(self.patterns))]
 
-if __name__ == '__main__':
-    from inst_gen.generator import generate_distance_matrix
-
-    n = 6
-    dist = generate_distance_matrix(n)
-
-    feas = [
-        [3, 0, 0, 0, 1, 2],
-        [1, 3, 0, 2, 1, 1],
-        [1, 0, 3, 2, 2, 2],
-        [3, 3, 3, 0, 2, 1]
-    ]
-
-    feas2 = [
-        [1, 2, 0, 3, 3, 3],
-        [2, 1, 3, 0, 0, 0],
-        [3, 0, 2, 1, 1, 1],
-        [0, 3, 1, 2, 2, 2],
-        [3, 3, 3, 1, 2, 0],
-        [1, 1, 1, 3, 0, 2],
-        [2, 2, 2, 0, 3, 1],
-        [0, 0, 0, 2, 1, 3]
-    ]
-
-    ttp_solver = TTPSolverIPIP(n, dist, 1, 3)
-
-    ttp_solver.solve(timeout=600)
+    def integer_solve(self):
+        pass
