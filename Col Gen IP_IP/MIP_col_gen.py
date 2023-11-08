@@ -11,23 +11,24 @@ class MIPPatternGenerator:
         self.upper = upper
         self.D = distances
 
-        self.hashes_list = []
+        self.bases = []
+        self.hashes_dict = {i: [] for i in self.teams}
         self.M = self.N ** self.S
-    
-    def initialize_variables(self, model):
+
+    def initialize_variables(self, model, home):
         self.home_play = model.addVars(self.teams, self.slots, vtype=GRB.BINARY, name='home')
         self.away_play = model.addVars(self.teams, self.slots, vtype=GRB.BINARY, name='away')
         self.y = model.addVars(self.teams, self.teams, self.slots, vtype=GRB.BINARY, name='y')
         self.hash = model.addVar(vtype=GRB.INTEGER, name='hash')
 
         self.aux_hash = {}
-        for i, h in enumerate(self.hashes_list):
+        for i, h in enumerate(self.hashes_dict[home]):
             self.aux_hash[i] = model.addVar(lb=0, ub=1,vtype=GRB.INTEGER, name=f'aux_hash_{h}')
 
-        if self.hashes_list:
-            self.M = max(self.hashes_list)
+        if self.hashes_dict[home]:
+            self.M = max(self.hashes_dict[home]) + 1
         
-    def initialize_constraints(self, model, home, pi):
+    def initialize_constraints(self, model, home):
         # R1 ningun equipo juega contrasigo mismo
         model.addConstrs(
             self.home_play[home, s] + self.away_play[home, s] == 0 
@@ -95,38 +96,40 @@ class MIPPatternGenerator:
         # Hashes
         # TODO: PQ NO FUNCIONA ESTO??? RESUELTO!!!! Era un problema de aproximación por uso de numeros grandes
         model.addConstr(
-            self.hash == quicksum(self.away_play[j, s] * j * self.N ** s for j in self.teams for s in self.slots)
+            self.hash == quicksum(self.away_play[j, s] * (j + 1) * (self.N + 1) ** s for j in self.teams for s in self.slots)
         )
-        for i, h in enumerate(self.hashes_list):
+        for i, h in enumerate(self.hashes_dict[home]):
             model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
             model.addConstr(self.hash >= h + 1 - self.M * (1 - self.aux_hash[i]))
-        
+
+        model.update()
+
+    def initialize_objective(self, model, home, pi):
+
         model.setObjective(
-            quicksum(self.y[i, j, s] for i in self.teams for j in self.teams for s in self.slots) 
-            + quicksum(self.away_play[j, 0] for j in self.teams)  
-            + quicksum(self.away_play[j, 2 * self.N - 3] for j in self.teams)
-            - quicksum((pi[self.N + home * len(self.slots) + (s - 1)] 
-                + pi[self.N + (t - self.N) * len(self.slots) + (s - 1)]) * self.away_play[t, s]
+            quicksum([self.D[i][j] * self.y[i, j, s] for i in self.teams for j in self.teams for s in self.slots]) 
+            + quicksum([self.D[home][j] * self.away_play[j, self.slots[0]] for j in self.teams])  
+            + quicksum([self.D[j][home] * self.away_play[j, self.slots[-1]] for j in self.teams])
+            # - quicksum([pi[self.N + t * len(self.slots) + s] * self.away_play[t, s] for t in self.teams for s in self.slots])
+            # - quicksum([pi[self.N + home * len(self.slots) + s] * self.home_play[t, s] for t in self.teams for s in self.slots])
+            # - pi[home]
+            - quicksum((pi[self.N + home * len(self.slots) + s] 
+                + pi[self.N + t * len(self.slots) + s]) * (self.away_play[t, s])
                 for s in self.slots for t in self.teams
             ) 
             - pi[home]
             , GRB.MINIMIZE
-        )
         
-        # model.setObjective(
-        #     quicksum(self.away_play[j, 1] * distances[home][j] for j in self.teams) 
-        #     + quicksum(self.y[i, j, s] * distances[i][j] for i in self.teams for j in self.teams for s in range(2 * self.N - 2))
-        #     + quicksum(self.away_play[j, 2 * self.N - 3] * distances[j][home] for j in self.teams)        
-        #     , GRB.MINIMIZE
-        # )
+        )
 
         model.update()
 
     def single_solve(self, home, pi):
         model = Model()
         model.setParam('OutputFlag', 0)
-        self.initialize_variables(model)
-        self.initialize_constraints(model, home, pi)
+        self.initialize_variables(model, home)
+        self.initialize_constraints(model, home)
+        self.initialize_objective(model, home, pi)
         model.optimize()
         ans = dict()
         if model.status == GRB.OPTIMAL:
@@ -139,15 +142,43 @@ class MIPPatternGenerator:
                     elif self.home_play[j, s].X:
                         HAPattern.append(home)
 
-            # self.hashes_list.append(int(self.hash.X))
             ans['pattern'] = tuple(HAPattern)
-            self.hashes_list.append(int(self.hash.X))
             ans['obj_val'] = model.ObjVal
+
+            if ans['obj_val'] < 0:
+                self.hashes_dict[home].append(int(self.hash.X))
             
-        else:
+        elif model.status == GRB.INFEASIBLE:
             ans['status'] = 'Infeasible'
-            print('No solution found.')
+            self.hashes_dict[home] = []
+            print('EEO')
+
         return ans
+    
+    def single_heur_solve(self, home):
+        model = Model()
+        model.setParam('OutputFlag', 0)
+        self.initialize_variables(model, home)
+        self.initialize_constraints(model, home)
+
+        model.optimize()
+        ans = dict()
+        if model.status == GRB.OPTIMAL:
+            ans['status'] = 'Feasible'
+            HAPattern = []
+            for s in self.slots:
+                for j in self.teams:
+                    if self.away_play[j, s].X:
+                        HAPattern.append(j)
+                    elif self.home_play[j, s].X:
+                        HAPattern.append(home)
+
+            ans['pattern'] = tuple(HAPattern)
+
+            self.hashes_dict[home].append(int(self.hash.X))
+
+        return ans
+
 
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
@@ -165,7 +196,7 @@ if __name__ == '__main__':
 
     start = time.time()
     for _ in range(iters):
-        ans = generator.single_solve(home, distances)
+        ans = generator.single_heur_solve(home)
         print(ans)
 
     end = time.time()
