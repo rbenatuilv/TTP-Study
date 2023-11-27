@@ -100,7 +100,9 @@ class MIPPatternGenerator:
         )
         for i, h in enumerate(self.hashes_dict[home]):
             model.addConstr(self.hash * self.aux_hash[i] <= h - 1)
+            # model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
             model.addConstr(self.hash >= (h + 1) * (1 - self.aux_hash[i]))
+            # model.addConstr(self.hash >= (h + 1) - self.M * (1 - self.aux_hash[i]))
 
         model.update()
 

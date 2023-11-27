@@ -266,10 +266,16 @@ class TTPSolverIPIP:
 
         print(f'\nElapsed time: {self.elapsed_time}')
         
-    def integer_solving(self, timeout=3600):
+    def integer_solver(self, timeout=3600):
         model = Model()
+        # model.OutputFlag = 0
+        
         x = [model.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
                   for i in range(len(self.patterns))]
+        
+        self.create_aux_sets()
+        self.set_costs()
+        
         for t in self.teams: 
             for s in self.slots:
                 model.addConstr(
@@ -283,6 +289,27 @@ class TTPSolverIPIP:
                 quicksum(x[i] for i in self.team_patterns[t]) == 1,
                 f"Asignacion_{t}"
             )
+        
+        model.update()
+        
+        
+        print(len(self.patterns))
+        print(len(self.costs))
+        
+        model.setObjective(
+            quicksum(x[i] * self.costs[i] for i in range(len(self.patterns)))
+            , GRB.MINIMIZE
+        )
+        
+        model.update()
+        model.optimize()
+        
+        if model.status == GRB.OPTIMAL:
+            print(model.ObjVal)
+            for i in range(len(self.patterns)):
+                if x[i].X >= 0.5:
+                    print(self.patterns[i])
+                    
         
 
         
@@ -317,7 +344,7 @@ class TTPSolverIPIP:
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
 
-    n = 6
+    n = 4
     dist = generate_distance_matrix(n)
 
     feas = [
@@ -341,3 +368,4 @@ if __name__ == '__main__':
     ttp_solver = TTPSolverIPIP(n, dist, 1, 3)
 
     ttp_solver.solve(timeout=600)
+    ttp_solver.integer_solver()

@@ -250,7 +250,6 @@ class TTPSolverIPCP:
             self.iterations += 1
 
     def solve(self, timeout=3600):
-
         solve_thread = Thread(target=self.solve_alg, daemon=True)
         solve_thread.start()
 
@@ -258,13 +257,56 @@ class TTPSolverIPCP:
         if solve_thread.is_alive():
             print('\nTIMEOUT')
             self.master.terminate()
-
+            
         stop = time()
         self.elapsed_time = stop - self.start_time
 
         self.print_results()
+        
+        self.integer_solver()
+        
 
         print(f'\nElapsed time: {self.elapsed_time}')
+    
+    def integer_solver(self, timeout=3600):
+        model = Model()
+        # model.Params.OutputFlag = 0
+        
+        x = [model.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
+                  for i in range(len(self.patterns))]
+        
+        self.create_aux_sets()
+        self.set_costs()
+        
+        for t in self.teams: 
+            for s in self.slots:
+                model.addConstr(
+                    (quicksum(x[i] for i in self.home_t_s[t, s]) 
+                     + quicksum(x[i] for i in self.away_t_s[t, s]) == 1),
+                    name=f"R_{t}_{s}"
+                )
+
+        for t in self.teams:
+            model.addConstr(
+                quicksum(x[i] for i in self.team_patterns[t]) == 1,
+                f"Asignacion_{t}"
+            )
+        
+        model.update()
+        
+        model.setObjective(
+            quicksum(x[i] * self.costs[i] for i in range(len(self.patterns)))
+            , GRB.MINIMIZE
+        )
+        
+        model.update()
+        model.optimize()
+        
+        if model.status == GRB.OPTIMAL:
+            print(model.ObjVal)
+            for i in range(len(self.patterns)):
+                if x[i].X >= 0.5:
+                    print(self.patterns[i])
             
     def print_results(self):
         if not self.solved:
