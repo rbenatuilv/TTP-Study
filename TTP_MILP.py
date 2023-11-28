@@ -2,14 +2,18 @@ from gurobipy import GRB, Model
 from gurobipy import quicksum 
 import time
 
-def TTP(n, D, L, U):
+def TTP(n, D, L, U, timeout=3600):
     start = time.time()
     T = range(n)
     S = range(2*n - 2)
     
     m = Model()
+    m.Params.OutputFlag = 0  # Suppress output
+    m.Params.NonConvex = 2  # Suppress academic license message
+
+    m.setParam('TimeLimit', timeout)
     m.setParam('OutputFlag', False)
-    
+
     x = m.addVars(T, T, S, vtype=GRB.BINARY, name='x')
     y = m.addVars(T, T, T, S, vtype=GRB.BINARY, name='y')
     z = m.addVars(T, T, S, vtype=GRB.BINARY, name='z')
@@ -97,7 +101,7 @@ def TTP(n, D, L, U):
     # print("Tiempo de ejecucion: ", m.Runtime)
     # print("Valor objetivo: ", m.ObjVal)
     ans = dict()
-    if m.status == GRB.OPTIMAL:
+    if m.status == GRB.OPTIMAL or m.status == GRB.TIME_LIMIT:
         lista_full = []
         for i in T:
             lista = []
@@ -115,27 +119,10 @@ def TTP(n, D, L, U):
         ans['pattern'] = lista_full 
         ans['best fractionary solution'] = None
         ans['best integer solution'] = m.ObjVal
-        ans['status'] = 'Optimal'
-        ans['time'] = end - start
-    elif m.status == GRB.TIME_LIMIT:
-        lista_full = []
-        for i in T:
-            lista = []
-            for k in S:
-                for j in T:
-                    if x[i, j, k].X != 0:
-                        # lista.append(("away", j))
-                        lista.append(j)
-                    if x[j, i, k].X != 0:
-                        # lista.append(("home", j))
-                        lista.append(i)
-            # print(lista)
-            lista_full.append(lista)
-            
-        ans['pattern'] = lista_full 
-        ans['best fractionary solution'] = None
-        ans['best integer solution'] = m.ObjVal
-        ans['status'] = 'Time Limit'
+        if m.status == GRB.TIME_LIMIT:
+            ans['status'] = 'Time Limit'
+        else:
+            ans['status'] = 'Optimal'
         ans['time'] = end - start
     else:
         ans['pattern'] = None 

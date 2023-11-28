@@ -214,7 +214,8 @@ class TTPMaster:
 
             if self.master.status == GRB.OPTIMAL:
                 self.solved = True
-                print(f'Optimal solution found: ObjVal: {self.master.objVal}')
+                if self.VERBOSE:
+                    print(f'Optimal solution found: ObjVal: {self.master.objVal}')
                 non_zero_vars = {var.VarName: var.X 
                                  for var in self.master.getVars() if var.X != 0}
 
@@ -222,7 +223,8 @@ class TTPMaster:
                     self.best_sol['objective'] = self.master.objVal
                     self.best_sol['patterns'] = [self.patterns[int(var[2:])] 
                                                  for var in non_zero_vars.keys()]
-                    print('\nINTEGER SOLUTION!\n')
+                    if self.VERBOSE:
+                        print('\nINTEGER SOLUTION!\n')
 
                 else:
                     self.partial_sol['objective'] = self.master.objVal
@@ -287,7 +289,8 @@ class TTPMaster:
                 self.optimal = optimal
 
             if self.master.status == GRB.INFEASIBLE:
-                print("Infeasible master problem")
+                if self.VERBOSE:
+                    print("Infeasible master problem")
                 for t in self.teams:
                     gen_patts = self.heur_sattelite_solve(t)
                     for p in gen_patts:
@@ -315,7 +318,8 @@ class TTPMaster:
 
         self.print_results()
 
-        print(f'\nElapsed time: {self.elapsed_time}')
+        if self.VERBOSE:
+            print(f'\nElapsed time: {self.elapsed_time}')
         
         
         ans = dict()
@@ -332,9 +336,10 @@ class TTPMaster:
         
     def integer_solver(self, timeout=3600):
         model = Model()
+        model.Params.OutputFlag = 0  # Suppress output
+        model.Params.NonConvex = 2  # Suppress academic license message
         model.setParam('TimeLimit', timeout)
-        model.Params.OutputFlag = 0
-        
+
         x = [model.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
                   for i in range(len(self.patterns))]
         
@@ -365,18 +370,27 @@ class TTPMaster:
         model.update()
         model.optimize()
         
-        if model.status == GRB.OPTIMAL or model.status == GRB.TIME_LIMTI:
-            print("SOLUCION ENTERA CON LAS COLUMNAS GENERADAS")
-            print(model.ObjVal)
+        if model.status == GRB.INFEASIBLE:
+            return None, None
+
+        else:
+            if self.VERBOSE:
+                print("SOLUCION ENTERA CON LAS COLUMNAS GENERADAS")
+                print(model.ObjVal)
             patrones = []
             for i in range(len(self.patterns)):
                 if x[i].X >= 0.5:
-                    print(self.patterns[i])
+                    if self.VERBOSE:
+                        print(self.patterns[i])
                     patrones.append(self.patterns[i])
             return patrones, model.ObjVal
-        return None, None
+        
+        
             
     def print_results(self):
+        if not self.VERBOSE:
+            return
+        
         if not self.solved:
             print('No solution found')
             return

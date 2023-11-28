@@ -1,15 +1,12 @@
 from ortools.sat.python import cp_model
-from inst_gen.generator import generate_distance_matrix
 import time
 
 
-def CPSolver(N, distancia, L, U):
+def CPSolver(N, distancia, L, U, timeout=3600):
     start = time.time()
     teams = range(N)
     teams_duplicated = range(2 * N)
     slots = range(1, 2 * N - 1)
-    
-    # distancia = generate_distance_matrix(N)
     
     model = cp_model.CpModel()
     
@@ -119,12 +116,13 @@ def CPSolver(N, distancia, L, U):
     model.Minimize(funcion_objetivo)
     
     solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = timeout
     
     status = solver.Solve(model)
     end = time.time()
     
     ans = dict()
-    if status == cp_model.OPTIMAL:
+    if status != cp_model.INFEASIBLE:
         pattern_full = []
         for t in teams:
             pattern = []
@@ -139,7 +137,7 @@ def CPSolver(N, distancia, L, U):
         ans['pattern'] = pattern_full
         ans['best fractionary solution'] = None
         ans['best integer solution'] = solver.Value(funcion_objetivo)
-        ans['status'] = 'Optimal'
+        ans['status'] = status
         ans['time'] = end - start
         # print(solver.Value(funcion_objetivo))
     else:
@@ -152,8 +150,8 @@ def CPSolver(N, distancia, L, U):
     return ans
 
 
-
 if __name__ == "__main__":   
+    from inst_gen.generator import generate_distance_matrix
     N = 4
     S = 2 * N - 2
     L = 1

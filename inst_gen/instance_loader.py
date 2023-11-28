@@ -1,5 +1,6 @@
 import random
 import os
+import pandas as pd
 
 
 class TTPInstanceLoader:
@@ -94,6 +95,20 @@ class TTPInstanceLoader:
                 print("{:<4}".format(matrix[i][j]), end="")
             print()
 
+    def save_info(self, n, seed, tester, info):
+        self.instances[n][seed][tester] = info
+
+    def write_results(self, n, tester):
+        try:
+            os.mkdir(os.path.join(self.directory, f'results_{tester}'))
+        except FileExistsError:
+            pass
+
+        path = os.path.join(self.directory, f'results_{tester}', f'results_N_{n}.xlsx')
+        info = {seed: self.instances[n][seed][tester] for seed in self.instances[n]}
+        df = pd.DataFrame(info).T
+        df.to_excel(path)
+        print(f'Results for N = {n} saved in {path}.\n')
 
 if __name__ == '__main__':
     loader = TTPInstanceLoader()
