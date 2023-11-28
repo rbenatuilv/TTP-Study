@@ -370,10 +370,8 @@ class TTPMaster:
         model.update()
         model.optimize()
         
-        if model.status == GRB.INFEASIBLE:
-            return None, None
-
-        else:
+        
+        if model.status == GRB.OPTIMAL or (model.status == GRB.TIME_LIMIT and model.solCount > 0) or model.status == GRB.SUBOPTIMAL:
             if self.VERBOSE:
                 print("SOLUCION ENTERA CON LAS COLUMNAS GENERADAS")
                 print(model.ObjVal)
@@ -385,7 +383,9 @@ class TTPMaster:
                     patrones.append(self.patterns[i])
             return patrones, model.ObjVal
         
-        
+        else:
+            return None, None
+
             
     def print_results(self):
         if not self.VERBOSE:

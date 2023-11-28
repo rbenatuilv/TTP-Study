@@ -6,7 +6,7 @@ from TTP_MILP import TTP
 from cpsolver import CPSolver
 
 
-TIMEOUT = 5
+TIMEOUT = 3600
 POBLATE = False
 N = [4, 6, 8, 10]
 quant = 5

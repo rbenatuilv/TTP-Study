@@ -122,11 +122,11 @@ def CPSolver(N, distancia, L, U, timeout=3600):
     end = time.time()
     
     ans = dict()
-    if status != cp_model.INFEASIBLE:
+    if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         pattern_full = []
-        for t in teams:
+        for s in slots:
             pattern = []
-            for s in slots:
+            for t in teams:
                 if solver.Value(opponent[t, s]) <= N - 1:
                     pattern.append(t)
                 else:
@@ -137,16 +137,28 @@ def CPSolver(N, distancia, L, U, timeout=3600):
         ans['pattern'] = pattern_full
         ans['best fractionary solution'] = None
         ans['best integer solution'] = solver.Value(funcion_objetivo)
-        ans['status'] = status
+        if status == cp_model.OPTIMAL:
+            ans['status'] = 'Optimal'
+        else:
+            ans['status'] = 'Feasible'
         ans['time'] = end - start
         # print(solver.Value(funcion_objetivo))
+
+    elif status != cp_model.INFEASIBLE:
+        ans['pattern'] = None
+        ans['best fractionary solution'] = None
+        ans['best integer solution'] = None
+        ans['status'] = 'Time Limit'
+        ans['time'] = end - start
+        # print('No solution found.')
+
     else:
         ans['pattern'] = None
         ans['best fractionary solution'] = None
         ans['best integer solution'] = None
-        ans['status'] = None
+        ans['status'] = 'Infeasible'
         ans['time'] = end - start
-        # print('No solution found.')
+
     return ans
 
 

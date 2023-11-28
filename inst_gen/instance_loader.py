@@ -104,10 +104,10 @@ class TTPInstanceLoader:
         except FileExistsError:
             pass
 
-        path = os.path.join(self.directory, f'results_{tester}', f'results_N_{n}.xlsx')
+        path = os.path.join(self.directory, f'results_{tester}', f'results_N_{n}.csv')
         info = {seed: self.instances[n][seed][tester] for seed in self.instances[n]}
         df = pd.DataFrame(info).T
-        df.to_excel(path)
+        df.to_csv(path)
         print(f'Results for N = {n} saved in {path}.\n')
 
 if __name__ == '__main__':

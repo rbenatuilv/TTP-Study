@@ -101,7 +101,7 @@ def TTP(n, D, L, U, timeout=3600):
     # print("Tiempo de ejecucion: ", m.Runtime)
     # print("Valor objetivo: ", m.ObjVal)
     ans = dict()
-    if m.status == GRB.OPTIMAL or m.status == GRB.TIME_LIMIT:
+    if m.status == GRB.OPTIMAL or m.status == GRB.SUBOPTIMAL:
         lista_full = []
         for i in T:
             lista = []
@@ -119,10 +119,30 @@ def TTP(n, D, L, U, timeout=3600):
         ans['pattern'] = lista_full 
         ans['best fractionary solution'] = None
         ans['best integer solution'] = m.ObjVal
-        if m.status == GRB.TIME_LIMIT:
-            ans['status'] = 'Time Limit'
+        if m.status == GRB.SUBOPTIMAL:
+            ans['status'] = 'Suboptimal'
         else:
             ans['status'] = 'Optimal'
+        ans['time'] = end - start
+    elif m.status == GRB.TIME_LIMIT and m.solCount > 0:
+        lista_full = []
+        for i in T:
+            lista = []
+            for k in S:
+                for j in T:
+                    if x[i, j, k].X != 0:
+                        # lista.append(("away", j))
+                        lista.append(j)
+                    if x[j, i, k].X != 0:
+                        # lista.append(("home", j))
+                        lista.append(i)
+            # print(lista)
+            lista_full.append(lista)
+            
+        ans['pattern'] = lista_full 
+        ans['best fractionary solution'] = None
+        ans['best integer solution'] = m.ObjVal
+        ans['status'] = "Time Limit"
         ans['time'] = end - start
     else:
         ans['pattern'] = None 
