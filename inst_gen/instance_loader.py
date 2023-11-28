@@ -22,14 +22,20 @@ class TTPInstanceLoader:
 
         seed = int(path.split('/')[-1].split('.')[0].split('_')[-1])
 
-        self.instances[n] = {
-            'seed': seed,
-            'matrix': matrix
-        }
+        if n not in self.instances:
+            self.instances[n] = {}
+
+        self.instances[n][seed] = {'matrix': matrix}
 
         print(f'Instance N = {n} loaded with seed {seed}.\n')
 
         return matrix
+    
+    def load_all(self, ns):
+        for n in ns:
+            path = os.path.join(self.directory, f'N_{n}')
+            for instance in os.listdir(path):
+                self.load(os.path.join(path, instance))
 
     def single_create(self, n, seed, grid_size=100):
         random.seed(seed)
@@ -46,10 +52,10 @@ class TTPInstanceLoader:
                         (points[i][1] - points[j][1]) ** 2) ** 0.5
                 distance_matrix[i].append(round(dist))
 
-        self.instances[n] = {
-            'seed': seed,
-            'matrix': distance_matrix
-        }
+        if n not in self.instances:
+            self.instances[n] = {}
+
+        self.instances[n][seed] = {'matrix': distance_matrix}
 
         print(f'Instance N = {n} created with seed {seed}.')
         try:

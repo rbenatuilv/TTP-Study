@@ -1,6 +1,5 @@
 from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
-from cpgenerator_heuristic import CPPatternGeneratorH
 from cpgenerator import CPPatternGenerator
 from time import time
 from threading import Thread

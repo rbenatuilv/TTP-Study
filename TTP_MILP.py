@@ -1,7 +1,9 @@
 from gurobipy import GRB, Model
 from gurobipy import quicksum 
+import time
 
 def TTP(n, D, L, U):
+    start = time.time()
     T = range(n)
     S = range(2*n - 2)
     
@@ -47,6 +49,7 @@ def TTP(n, D, L, U):
         quicksum(x[i, j, k + l] for l in range(U + 1) for j in T) >= L
         for i in T for k in range(2 * n - 2 - U)
     )
+    
     m.addConstrs(
         quicksum(1 - x[i, j, k + l] for l in range(U + 1) for j in T) >= L
         for i in T for k in range(2 * n - 2 - U)
@@ -87,25 +90,61 @@ def TTP(n, D, L, U):
     )
     
     m.optimize()
+    end = time.time()
     # m.computeIIS()
     # m.write("model.ilp")
 
-    print("Tiempo de ejecucion: ", m.Runtime)
-    print("Valor objetivo: ", m.ObjVal)
-    
-    for i in T:
-        lista = []
-        for k in S:
-            for j in T:
-                if x[i, j, k].X != 0:
-                    # lista.append(("away", j))
-                    lista.append(j)
-                if x[j, i, k].X != 0:
-                    # lista.append(("home", j))
-                    lista.append(i)
-        print(lista)
-    
-    return 
+    # print("Tiempo de ejecucion: ", m.Runtime)
+    # print("Valor objetivo: ", m.ObjVal)
+    ans = dict()
+    if m.status == GRB.OPTIMAL:
+        lista_full = []
+        for i in T:
+            lista = []
+            for k in S:
+                for j in T:
+                    if x[i, j, k].X != 0:
+                        # lista.append(("away", j))
+                        lista.append(j)
+                    if x[j, i, k].X != 0:
+                        # lista.append(("home", j))
+                        lista.append(i)
+            # print(lista)
+            lista_full.append(lista)
+            
+        ans['pattern'] = lista_full 
+        ans['best fractionary solution'] = None
+        ans['best integer solution'] = m.ObjVal
+        ans['status'] = 'Optimal'
+        ans['time'] = end - start
+    elif m.status == GRB.TIME_LIMIT:
+        lista_full = []
+        for i in T:
+            lista = []
+            for k in S:
+                for j in T:
+                    if x[i, j, k].X != 0:
+                        # lista.append(("away", j))
+                        lista.append(j)
+                    if x[j, i, k].X != 0:
+                        # lista.append(("home", j))
+                        lista.append(i)
+            # print(lista)
+            lista_full.append(lista)
+            
+        ans['pattern'] = lista_full 
+        ans['best fractionary solution'] = None
+        ans['best integer solution'] = m.ObjVal
+        ans['status'] = 'Time Limit'
+        ans['time'] = end - start
+    else:
+        ans['pattern'] = None 
+        ans['best fractionary solution'] = None
+        ans['best integer solution'] = None
+        ans['status'] = 'Infeasible'
+        ans['time'] = end - start
+        
+    return ans
     
     
 if __name__ == "__main__":

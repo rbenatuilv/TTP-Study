@@ -1,6 +1,5 @@
 from gurobipy import GRB, Model, Column
-from gurobipy import quicksum 
-from cpgenerator_heuristic import CPPatternGeneratorH
+from gurobipy import quicksum
 from MIP_col_gen import MIPPatternGenerator
 from time import time
 from threading import Thread
@@ -309,11 +308,7 @@ class TTPSolverIPIP:
             for i in range(len(self.patterns)):
                 if x[i].X >= 0.5:
                     print(self.patterns[i])
-                    
-        
 
-        
-            
     def print_results(self):
         if not self.solved:
             print('No solution found')

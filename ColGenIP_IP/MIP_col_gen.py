@@ -1,5 +1,6 @@
 from gurobipy import GRB, Model, Column
 from gurobipy import quicksum 
+import time
 
 class MIPPatternGenerator:
     def __init__(self, n_teams: int, lower: int, upper: int, distances: list):
@@ -10,6 +11,7 @@ class MIPPatternGenerator:
         self.lower = lower
         self.upper = upper
         self.D = distances
+        self.LINEAR = False
 
         self.bases = []
         self.hashes_dict = {i: [] for i in self.teams}
@@ -21,6 +23,7 @@ class MIPPatternGenerator:
         self.y = model.addVars(self.teams, self.teams, self.slots, vtype=GRB.BINARY, name='y')
         self.hash = model.addVar(vtype=GRB.INTEGER, name='hash')
 
+        # aux_hash[i] = 1 <-> hash > self.hashes_dict[home] 
         self.aux_hash = {}
         for i, h in enumerate(self.hashes_dict[home]):
             self.aux_hash[i] = model.addVar(lb=0, ub=1,vtype=GRB.INTEGER, name=f'aux_hash_{h}')
@@ -94,16 +97,17 @@ class MIPPatternGenerator:
         )
 
         # Hashes
-        # TODO: PQ NO FUNCIONA ESTO??? RESUELTO!!!! Era un problema de aproximación por uso de numeros grandes
         model.addConstr(
             self.hash == quicksum(self.away_play[j, s] * (j + 1) * (self.N + 1) ** s for j in self.teams for s in self.slots)
         )
         for i, h in enumerate(self.hashes_dict[home]):
-            model.addConstr(self.hash * self.aux_hash[i] <= h - 1)
-            # model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
-            model.addConstr(self.hash >= (h + 1) * (1 - self.aux_hash[i]))
-            # model.addConstr(self.hash >= (h + 1) - self.M * (1 - self.aux_hash[i]))
-
+            if self.LINEAR:
+                model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
+                model.addConstr(self.hash >= (h + 1) - self.M * (1 - self.aux_hash[i]))
+            else:
+                model.addConstr(self.hash * (1 - self.aux_hash[i]) -1e-12 <= h - 1)
+                model.addConstr(self.hash >= (h + 1) * self.aux_hash[i] -1e-12)
+            
         model.update()
 
     def initialize_objective(self, model, home, pi):
@@ -118,7 +122,6 @@ class MIPPatternGenerator:
             ) 
             - pi[home]
             , GRB.MINIMIZE
-        
         )
 
         model.update()
@@ -126,10 +129,12 @@ class MIPPatternGenerator:
     def single_solve(self, home, pi):
         model = Model()
         model.setParam('OutputFlag', 0)
+        start = time.time()
         self.initialize_variables(model, home)
         self.initialize_constraints(model, home)
         self.initialize_objective(model, home, pi)
         model.optimize()
+        end = time.time()
         ans = dict()
         if model.status == GRB.OPTIMAL:
             ans['status'] = 'Feasible'
@@ -143,9 +148,10 @@ class MIPPatternGenerator:
 
             ans['pattern'] = tuple(HAPattern)
             ans['obj_val'] = model.ObjVal
+            ans['time'] = end - start
 
-            if ans['obj_val'] < 0:
-                self.hashes_dict[home].append(int(self.hash.X))
+            if ans['obj_val'] < 0.5:
+                self.hashes_dict[home].append(int(self.hash.X + 1e-12))
             
         elif model.status == GRB.INFEASIBLE:
             ans['status'] = 'Infeasible'
@@ -182,7 +188,7 @@ class MIPPatternGenerator:
 
 if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
-    import time
+    
 
     n = 4
     distances = generate_distance_matrix(n)
@@ -190,7 +196,7 @@ if __name__ == '__main__':
 
     generator = MIPPatternGenerator(n, 1, 3, distances)
 
-    home = 2
+    home = 0
     patts = []
     iters = 121
     
@@ -203,5 +209,7 @@ if __name__ == '__main__':
         print(ans)
 
     end = time.time()
+    
+    
 
     # print(end - start)
