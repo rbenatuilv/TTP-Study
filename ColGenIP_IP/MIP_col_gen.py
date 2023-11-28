@@ -168,7 +168,7 @@ class MIPPatternGenerator:
 
         model.optimize()
         ans = dict()
-        if model.status == GRB.OPTIMAL:
+        if model.status == GRB.OPTIMAL or model.status == GRB.SUBOPTIMAL or (model.status == GRB.TIME_LIMIT and model.solCount > 0):
             ans['status'] = 'Feasible'
             HAPattern = []
             
@@ -180,8 +180,9 @@ class MIPPatternGenerator:
                         HAPattern.append(home)
 
             ans['pattern'] = tuple(HAPattern)
-
-            self.hashes_dict[home].append(int(self.hash.X))
+        
+        else:
+            ans['status'] = 'Infeasible'
 
         return ans
 

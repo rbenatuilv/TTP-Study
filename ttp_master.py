@@ -321,7 +321,6 @@ class TTPMaster:
         if self.VERBOSE:
             print(f'\nElapsed time: {self.elapsed_time}')
         
-        
         ans = dict()
         ans['pattern'] = integer_patterns
         ans['best fractionary solution'] = self.partial_sol['objective']
@@ -335,12 +334,12 @@ class TTPMaster:
         return ans
         
     def integer_solver(self, timeout=3600):
-        model = Model()
-        model.Params.OutputFlag = 0  # Suppress output
-        model.Params.NonConvex = 2  # Suppress academic license message
-        model.setParam('TimeLimit', timeout)
+        self.model_int = Model()
+        self.model_int.Params.OutputFlag = 0  # Suppress output
+        self.model_int.Params.NonConvex = 2  # Suppress academic license message
+        self.model_int.setParam('TimeLimit', timeout)
 
-        x = [model.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
+        self.x_int = [self.model_int.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
                   for i in range(len(self.patterns))]
         
         self.create_aux_sets()
@@ -348,45 +347,43 @@ class TTPMaster:
         
         for t in self.teams: 
             for s in self.slots:
-                model.addConstr(
-                    (quicksum(x[i] for i in self.home_t_s[t, s]) 
-                     + quicksum(x[i] for i in self.away_t_s[t, s]) == 1),
+                self.model_int.addConstr(
+                    (quicksum(self.x_int[i] for i in self.home_t_s[t, s]) 
+                     + quicksum(self.x_int[i] for i in self.away_t_s[t, s]) == 1),
                     name=f"R_{t}_{s}"
                 )
 
         for t in self.teams:
-            model.addConstr(
-                quicksum(x[i] for i in self.team_patterns[t]) == 1,
+            self.model_int.addConstr(
+                quicksum(self.x_int[i] for i in self.team_patterns[t]) == 1,
                 f"Asignacion_{t}"
             )
         
-        model.update()
+        self.model_int.update()
         
-        model.setObjective(
-            quicksum(x[i] * self.costs[i] for i in range(len(self.patterns)))
+        self.model_int.setObjective(
+            quicksum(self.x_int[i] * self.costs[i] for i in range(len(self.patterns)))
             , GRB.MINIMIZE
         )
         
-        model.update()
-        model.optimize()
+        self.model_int.update()
+        self.model_int.optimize()
         
-        
-        if model.status == GRB.OPTIMAL or (model.status == GRB.TIME_LIMIT and model.solCount > 0) or model.status == GRB.SUBOPTIMAL:
+        if self.model_int.status == GRB.OPTIMAL or (self.model_int.status == GRB.TIME_LIMIT and self.model_int.solCount > 0) or self.model_int.status == GRB.SUBOPTIMAL:
             if self.VERBOSE:
                 print("SOLUCION ENTERA CON LAS COLUMNAS GENERADAS")
-                print(model.ObjVal)
+                print(self.model_int.ObjVal)
             patrones = []
             for i in range(len(self.patterns)):
-                if x[i].X >= 0.5:
+                if self.x_int[i].X >= 0.5:
                     if self.VERBOSE:
                         print(self.patterns[i])
                     patrones.append(self.patterns[i])
-            return patrones, model.ObjVal
+            return patrones, self.model_int.ObjVal
         
         else:
             return None, None
 
-            
     def print_results(self):
         if not self.VERBOSE:
             return
