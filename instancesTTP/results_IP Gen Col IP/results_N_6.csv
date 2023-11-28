@@ -1,6 +1,1 @@
-,pattern,best fractionary solution,best integer solution,status,time
-306,,inf,,Time Limit,0.5214788913726807
-33,,inf,,Time Limit,0.7091872692108154
-690,,inf,,Time Limit,0.7787575721740723
-89,,inf,,Time Limit,1.7542307376861572
-966,,inf,,Time Limit,0.7821846008300781
+seed;pattern;best fractionary solution;best integer solution;status;time

@@ -95,8 +95,19 @@ class TTPInstanceLoader:
                 print("{:<4}".format(matrix[i][j]), end="")
             print()
 
-    def save_info(self, n, seed, tester, info):
+    def text_matrix(self, n, seed):
+        return ';'.join([','.join([str(y) for y in x]) for x in self.instances[n][seed]['matrix']])
+
+    def save_info(self, n, seed, tester, info, to_csv):
         self.instances[n][seed][tester] = info
+        if to_csv:
+            path = os.path.join(self.directory, f'results_{tester}', f'results_N_{n}.csv')
+
+            keys = ['pattern', 'best fractionary solution', 'best integer solution', 'status', 'time']
+
+            info = ';'.join([str(info[key]) for key in keys])
+            with open(path, 'a') as file:
+                file.write(f'{seed};{info}\n')
 
     def write_results(self, n, tester):
         try:

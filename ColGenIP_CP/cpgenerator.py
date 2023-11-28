@@ -183,13 +183,14 @@ class CPPatternGenerator:
         self.set_constrs(home, model)
         status = self.solver.Solve(model)
         ans = dict()
-        if status == cp_model.OPTIMAL:
+        if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
             ans['status'] = 'Feasible'
             pat = tuple([self.solver.Value(self.opponent[s]) for s in self.slots])
             ans['pattern'] = self.convert_pattern(home, pat)
 
             self.patt_hashes[home].append(self.solver.Value(self.pat_hash))
-
+        else:
+            ans['status'] = 'Infeasible'
         return ans
 
 
