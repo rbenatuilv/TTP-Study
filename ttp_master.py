@@ -5,14 +5,14 @@ from threading import Thread
 
 
 class TTPMaster:
-    def __init__(self, n_teams: int, distances: list, lower: int, upper: int, satt1=None, satt2=None, patterns=[]):
+    def __init__(self, n_teams: int, distances: list, lower: int, upper: int, satt1=None, satt2=None, patterns=[], verbose=False):
         self.N = n_teams
         self.teams = range(n_teams)
         self.slots = range(2 * n_teams - 2)
 
         self.distances = distances
         self.patterns = patterns
-        self.VERBOSE = False
+        self.VERBOSE = verbose
 
         self.lower = lower
         self.upper = upper
@@ -208,6 +208,7 @@ class TTPMaster:
         self.optimal = False
         self.iterations = 0
         self.start_time = time()
+        print("hola")
 
         while not self.optimal:
             self.master_solve()
@@ -300,7 +301,7 @@ class TTPMaster:
             self.iterations += 1
 
     def solve(self, timeout=3600):
-
+        print("partire la thread")
         solve_thread = Thread(target=self.solve_alg, daemon=True)
         solve_thread.start()
 
@@ -430,7 +431,7 @@ if __name__ == '__main__':
     
     #  __init__(self, n_teams: int, distances: list, lower: int, upper: int, satt, patterns=[]):
     # ttp_solver = TTPMaster(n, dist, 1, 3, satt1=sattelite_MIP, satt2=sattelite_CP)
-    # ttp_solver = TTPMaster(n, dist, 1, 3, satt1=sattelite_MIP)
-    ttp_solver = TTPMaster(n, dist, 1, 3, satt2=sattelite_CP)
-    ttp_solver.solve(timeout=600)
+    ttp_solver = TTPMaster(n, dist, 1, 3, satt1=sattelite_MIP, verbose=True)
+    # ttp_solver = TTPMaster(n, dist, 1, 3, satt2=sattelite_CP)
+    ttp_solver.solve(timeout=60)
     # ttp_solver.integer_solver()

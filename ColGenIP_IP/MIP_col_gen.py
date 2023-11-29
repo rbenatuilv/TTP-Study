@@ -180,7 +180,8 @@ class MIPPatternGenerator:
                         HAPattern.append(home)
 
             ans['pattern'] = tuple(HAPattern)
-        
+            self.hashes_dict[home].append(int(self.hash.X + 1e-12))
+            
         else:
             ans['status'] = 'Infeasible'
 
