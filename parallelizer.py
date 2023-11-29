@@ -37,7 +37,7 @@ if __name__ == '__main__':
     N = [4, 6, 8, 10]
     POBLATE = False
     quant = 5
-    TIMEOUT = 60
+    TIMEOUT = 7200
     
     if POBLATE:
         for n in N:
