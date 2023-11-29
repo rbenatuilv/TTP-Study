@@ -1,7 +1,4 @@
 import subprocess
-import concurrent.futures
-from inst_gen.instance_loader import TTPInstanceLoader
-import json
 import os
 
 
@@ -11,8 +8,8 @@ def run_solver(command):
     return command, stdout, stderr, process.returncode
 
 
-def create_file(n, tester, loader):
-    path = os.path.join(loader.directory, f'results_{tester}', f'results_N_{n}.csv')
+def create_file(n, tester, directory):
+    path = os.path.join(directory, f'results_{tester}', f'results_N_{n}.csv')
     with open(path, 'w') as file:
         file.write('seed;pattern;best fractionary solution;best integer solution;status;time\n')
 
@@ -33,11 +30,18 @@ def write_error(n, seed, tester, error):
 
 
 if __name__ == '__main__':
+    import concurrent.futures
+    from inst_gen.instance_loader import TTPInstanceLoader
+    import json
+
     loader = TTPInstanceLoader()
+
     N = [4, 6, 8, 10]
+    methods = ['MIP', 'CP', 'IP Gen Col IP', 'IP Gen Col CP']
+    TIMEOUT = 7200
+
     POBLATE = False
     quant = 5
-    TIMEOUT = 7200
     
     if POBLATE:
         for n in N:
@@ -48,11 +52,9 @@ if __name__ == '__main__':
     seeds = {n: [seed for seed in loader.instances[n]] for n in N}
     matrices = {n: {seed: loader.text_matrix(n, seed) for seed in seeds[n]} for n in N}
 
-    methods = ['MIP', 'CP', 'IP Gen Col IP', 'IP Gen Col CP']
-
     for n in N:
         for method in methods:
-            create_file(n, method, loader)
+            create_file(n, method, loader.directory)
 
     create_error_file()
 
