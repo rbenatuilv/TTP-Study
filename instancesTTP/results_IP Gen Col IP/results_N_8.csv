@@ -1,4 +1,6 @@
 seed;pattern;best fractionary solution;best integer solution;status;time
-376;None;inf;None;Time Limit;7204.691467761993
-397;None;inf;None;Time Limit;7206.484310388565
-504;None;inf;None;Time Limit;7203.526322126389
+335;None;inf;None;Time Limit;7201.437907457352
+376;None;inf;None;Time Limit;7201.064898490906
+397;None;inf;None;Time Limit;7200.782828807831
+504;None;inf;None;Time Limit;7199.351823091507
+55;None;inf;None;Time Limit;7199.425975561142
