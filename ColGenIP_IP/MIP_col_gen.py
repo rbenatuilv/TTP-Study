@@ -12,9 +12,19 @@ class MIPPatternGenerator:
         self.upper = upper
         self.D = distances
         self.LINEAR = False
-
-        self.bases = []
+        self.OLD_HASH = False
+        
         self.hashes_dict = {i: [] for i in self.teams}
+        
+        self.patterns = {i: [] for i in self.teams}
+
+        self.Pow = []
+        inicial = 1
+        for s in self.slots:
+            self.Pow.append(inicial)
+            inicial *= (self.N + 1)
+        self.Pow.append(inicial)
+        
         self.M = self.N ** self.S
 
     def initialize_variables(self, model, home):
@@ -96,17 +106,23 @@ class MIPPatternGenerator:
             for i in self.teams for j in self.teams for s in range(2 * self.N - 3)
         )
 
-        # Hashes
-        model.addConstr(
-            self.hash == quicksum(self.away_play[j, s] * (j + 1) * (self.N + 1) ** s for j in self.teams for s in self.slots)
-        )
-        for i, h in enumerate(self.hashes_dict[home]):
-            if self.LINEAR:
-                model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
-                model.addConstr(self.hash >= (h + 1) - self.M * (1 - self.aux_hash[i]))
-            else:
-                model.addConstr(self.hash * (1 - self.aux_hash[i]) -1e-12 <= h - 1)
-                model.addConstr(self.hash >= (h + 1) * self.aux_hash[i] -1e-12)
+        if self.OLD_HASH:
+            # Hashes
+            model.addConstr(
+                self.hash == quicksum(self.away_play[j, s] * (j + 1) * self.Pow[s] for j in self.teams for s in self.slots)
+            )
+            for i, h in enumerate(self.hashes_dict[home]):
+                if self.LINEAR:
+                    model.addConstr(self.hash <= h - 1 + self.M * self.aux_hash[i])
+                    model.addConstr(self.hash >= (h + 1) - self.M * (1 - self.aux_hash[i]))
+                else:
+                    model.addConstr(self.hash * (1 - self.aux_hash[i]) -1e-12 <= h - 1)
+                    model.addConstr(self.hash >= (h + 1) * self.aux_hash[i] -1e-12)
+        else:
+            # sum(away[pattern[s], s] for s in S) <= |slots| - 1
+            for pattern in self.patterns[home]:
+                # Restricciones de igualdad
+                model.addConstr(quicksum(self.away_play[pattern[s], s] for s in self.slots) <= self.N - 2)
             
         model.update()
 
@@ -152,6 +168,8 @@ class MIPPatternGenerator:
 
             if ans['obj_val'] < 0.5:
                 self.hashes_dict[home].append(int(self.hash.X + 1e-12))
+                self.patterns[home].append(ans['pattern'])
+                # print(int(self.hash.X + 1e-12))
             
         elif model.status == GRB.INFEASIBLE:
             ans['status'] = 'Infeasible'
@@ -181,7 +199,7 @@ class MIPPatternGenerator:
 
             ans['pattern'] = tuple(HAPattern)
             self.hashes_dict[home].append(int(self.hash.X + 1e-12))
-            
+            self.patterns[home].append(ans['pattern'])
         else:
             ans['status'] = 'Infeasible'
 
@@ -192,7 +210,7 @@ if __name__ == '__main__':
     from inst_gen.generator import generate_distance_matrix
     
 
-    n = 4
+    n = 6
     distances = generate_distance_matrix(n)
     ph = []
 
@@ -200,15 +218,16 @@ if __name__ == '__main__':
 
     home = 0
     patts = []
-    iters = 121
+    iters = 10 * 9 * 8 * 7 * 6 + 1
     
     patterns = set()
     
     start = time.time()
     for _ in range(iters):
         ans = generator.single_gen_solve(home)
-        print(generator.hashes_dict[home][-1])
-        print(ans)
+        # print(generator.hashes_dict[home][-1])
+        # print(generator.patterns[home][-1])
+        print(_, ans)
 
     end = time.time()
     

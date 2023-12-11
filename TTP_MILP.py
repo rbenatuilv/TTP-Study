@@ -157,11 +157,13 @@ def TTP(n, D, L, U, timeout=3600):
 if __name__ == "__main__":
     from inst_gen.generator import generate_distance_matrix
 
-    N = 4
+    N = 6
     
     Distancia = generate_distance_matrix(N)
 
     Left = 1
     Right = 3
 
-    TTP(N, Distancia, Left, Right)
+    pat = TTP(N, Distancia, Left, Right, timeout=60)
+
+    print(pat)

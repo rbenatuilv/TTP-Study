@@ -143,6 +143,7 @@ class TTPMaster:
         self.master.setObjective(quicksum(self.x[i] * self.costs[i] 
                                           for i in range(len(self.patterns))), 
                                           GRB.MINIMIZE)
+        
     def master_solve(self):
         self.master.update()
         self.master.optimize()
@@ -284,6 +285,10 @@ class TTPMaster:
                             optimal = False
                             self.patterns.append(dictionary['pattern'])
                             self.add_column(dictionary['pattern'], t)
+                            
+                            if self.VERBOSE:
+                                print(dictionary['pattern'])
+                                
                         elif dictionary['status'] == "Infeasible":
                             optimal = False
 
@@ -294,6 +299,7 @@ class TTPMaster:
                     print("Infeasible master problem")
                 for t in self.teams:
                     gen_patts = self.heur_sattelite_solve(t)
+                    print(gen_patts)
                     for p in gen_patts:
                         self.patterns.append(p)
                         self.add_column(p, t)
@@ -301,7 +307,7 @@ class TTPMaster:
             self.iterations += 1
 
     def solve(self, timeout=3600):
-        print("partire la thread")
+        # print("partire la thread")
         solve_thread = Thread(target=self.solve_alg, daemon=True)
         solve_thread.start()
 
@@ -340,11 +346,11 @@ class TTPMaster:
         self.model_int.Params.NonConvex = 2  # Suppress academic license message
         self.model_int.setParam('TimeLimit', timeout)
 
-        self.x_int = [self.model_int.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
-                  for i in range(len(self.patterns))]
-        
         self.create_aux_sets()
         self.set_costs()
+        
+        self.x_int = [self.model_int.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
+                  for i in range(len(self.patterns))]
         
         for t in self.teams: 
             for s in self.slots:
@@ -394,7 +400,7 @@ class TTPMaster:
             return
         
         if self.optimal:
-                print('\nOPTIMAL SOL!')
+            print('\nOPTIMAL SOL!')
         else:
             print('\nSUB OPTIMAL SOL!')
 
@@ -420,8 +426,10 @@ if __name__ == '__main__':
     from ColGenIP_CP.cpgenerator import CPPatternGenerator
     from ColGenIP_IP.MIP_col_gen import MIPPatternGenerator
     
-    n = 4
+    n = 6
     dist = generate_distance_matrix(n)
+
+    # pat = [[1, 4, 5, 0, 0, 0, 2, 3, 0, 0], [1, 1, 4, 2, 0, 1, 3, 5, 1, 1], [4, 1, 2, 2, 2, 0, 2, 2, 5, 3], [3, 5, 2, 0, 3, 4, 3, 3, 1, 3], [4, 4, 4, 5, 3, 4, 4, 2, 0, 1], [3, 5, 5, 5, 2, 1, 4, 5, 5, 0]]
     
     # __init__(self, n_teams: int, lower: int, upper: int, distances: list):
     sattelite_MIP = MIPPatternGenerator
@@ -431,7 +439,7 @@ if __name__ == '__main__':
     
     #  __init__(self, n_teams: int, distances: list, lower: int, upper: int, satt, patterns=[]):
     # ttp_solver = TTPMaster(n, dist, 1, 3, satt1=sattelite_MIP, satt2=sattelite_CP)
-    ttp_solver = TTPMaster(n, dist, 1, 3, satt1=sattelite_MIP, verbose=True)
-    # ttp_solver = TTPMaster(n, dist, 1, 3, satt2=sattelite_CP)
-    ttp_solver.solve(timeout=60)
+    # ttp_solver = TTPMaster(n, dist, 1, 3, satt1=sattelite_MIP, verbose=True)
+    ttp_solver = TTPMaster(n, dist, 1, 3, satt2=sattelite_CP)
+    ttp_solver.solve(timeout=180)
     # ttp_solver.integer_solver()

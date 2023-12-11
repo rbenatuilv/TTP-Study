@@ -15,6 +15,9 @@ class CPPatternGenerator:
         self.max_dist = max(distances[i][j] for i in self.teams for j in self.teams)
 
         self.patt_hashes = {i: [] for i in self.teams}
+        
+        self.OLD_HASH = False
+        self.patterns = {i: [] for i in self.teams}
 
         self.solver = cp_model.CpSolver()
 
@@ -84,10 +87,13 @@ class CPPatternGenerator:
 
         # for ph in self.patt_hashes[home]:
         #     model.Add(self.pat_hash != ph)
-            
-        for i, h in enumerate(self.patt_hashes[home]):
-            model.Add(self.pat_hash <= h - 1).OnlyEnforceIf(self.aux_hash[i].Not())
-            model.Add(self.pat_hash >= (h + 1)).OnlyEnforceIf(self.aux_hash[i])
+        if self.OLD_HASH:
+            for i, h in enumerate(self.patt_hashes[home]):
+                model.Add(self.pat_hash <= h - 1).OnlyEnforceIf(self.aux_hash[i].Not())
+                model.Add(self.pat_hash >= (h + 1)).OnlyEnforceIf(self.aux_hash[i])
+        else:
+            for pattern in self.patterns[home]:
+                model.Add(sum(self.auxiliar[pattern[s] + self.N - 1, s] for s in self.slots) <= self.N - 2)
 
     def set_objective(self, home, model, pi):
 
@@ -169,7 +175,8 @@ class CPPatternGenerator:
             ans['time'] = end - start
             if ans['obj_val'] < 0.5:
                 self.patt_hashes[home].append(self.solver.Value(self.pat_hash))
-
+                self.patterns[home].append(ans['pattern'])
+                
         elif status == cp_model.INFEASIBLE:
             ans['status'] = 'Infeasible'
             self.patt_hashes[home] = []
@@ -189,6 +196,7 @@ class CPPatternGenerator:
             ans['pattern'] = self.convert_pattern(home, pat)
 
             self.patt_hashes[home].append(self.solver.Value(self.pat_hash))
+            self.patterns[home].append(ans['pattern'])
         else:
             ans['status'] = 'Infeasible'
         return ans
@@ -213,10 +221,9 @@ if __name__ == '__main__':
     start = time.time()
     for _ in range(iters):
         ans = generator.single_gen_solve(home)
-        print(ans)
+        print(_, ans)
         # print("yahoooo")
 
-    print(sorted(generator.patt_hashes[home]))
     end = time.time()
 
     print(end - start)
