@@ -37,7 +37,7 @@ if __name__ == '__main__':
     loader = TTPInstanceLoader()
 
     N = [4, 6, 8, 10]
-    methods = ['IP Gen Col IP']
+    methods = ['IP Gen Col IP', 'IP Gen Col CP']
     TIMEOUT = 7200
 
     POBLATE = False

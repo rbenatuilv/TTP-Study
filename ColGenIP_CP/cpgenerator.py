@@ -93,7 +93,7 @@ class CPPatternGenerator:
                 model.Add(self.pat_hash >= (h + 1)).OnlyEnforceIf(self.aux_hash[i])
         else:
             for pattern in self.patterns[home]:
-                model.Add(sum(self.auxiliar[pattern[s] + self.N - 1, s] for s in self.slots) <= self.N - 2)
+                model.Add(sum(self.auxiliar[pattern[s] + self.N, s] for s in self.slots) <= self.N - 2)
 
     def set_objective(self, home, model, pi):
 

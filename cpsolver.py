@@ -124,15 +124,13 @@ def CPSolver(N, distancia, L, U, timeout=3600):
     ans = dict()
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         pattern_full = []
-        for s in slots:
+        for t in teams:
             pattern = []
-            for t in teams:
+            for s in slots:
                 if solver.Value(opponent[t, s]) <= N - 1:
                     pattern.append(t)
                 else:
                     pattern.append(solver.Value(opponent[t, s]) - N)
-                # print(f'{t}, {solver.Value(opponent[t, s])}, {solver.Value(opponent[solver.Value(opponent[t, s]) % N, s]) % N}')
-            # print(pattern)
             pattern_full.append(pattern)
         ans['pattern'] = pattern_full
         ans['best fractionary solution'] = None
@@ -142,7 +140,6 @@ def CPSolver(N, distancia, L, U, timeout=3600):
         else:
             ans['status'] = 'Feasible'
         ans['time'] = end - start
-        # print(solver.Value(funcion_objetivo))
 
     elif status != cp_model.INFEASIBLE:
         ans['pattern'] = None
@@ -150,7 +147,6 @@ def CPSolver(N, distancia, L, U, timeout=3600):
         ans['best integer solution'] = None
         ans['status'] = 'Time Limit'
         ans['time'] = end - start
-        # print('No solution found.')
 
     else:
         ans['pattern'] = None
@@ -169,5 +165,5 @@ if __name__ == "__main__":
     L = 1
     U = 3
     distancia = generate_distance_matrix(N)
-    CPSolver(N, distancia, L, U)
+    print(CPSolver(N, distancia, L, U, timeout=10))
     

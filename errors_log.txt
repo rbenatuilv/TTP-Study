@@ -1,0 +1,14 @@
+N = 6, seed = 89, tester = IP Gen Col CP
+Traceback (most recent call last):
+  File "C:\Users\Roberto B\Documents\A Universidad\VIII Semestre\Ipre\TTP-Study\parallel_solve.py", line 43, in <module>
+    answer = solver.solve(timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Roberto B\Documents\A Universidad\VIII Semestre\Ipre\TTP-Study\ttp_master.py", line 291, in solve
+    integer_patterns, integer_solution = self.integer_solver(timeout=timeout)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Roberto B\Documents\A Universidad\VIII Semestre\Ipre\TTP-Study\ttp_master.py", line 359, in integer_solver
+    if self.x_int[i].X >= 0.5:
+       ~~~~~~~~~~^^^
+IndexError: list index out of range
+
+

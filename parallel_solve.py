@@ -23,13 +23,23 @@ elif method == 'CP':
 elif method == 'IP Gen Col IP':
     from ttp_master import TTPMaster
     from ColGenIP_IP.MIP_col_gen import MIPPatternGenerator
-    solver = TTPMaster(n, matrix, 1, 3, MIPPatternGenerator)
+
+    p_s = None
+    if n > 4:
+        from cpsolver import CPSolver
+        p_s = CPSolver
+    solver = TTPMaster(n, matrix, 1, 3, MIPPatternGenerator, pattern_setter=p_s)
     answer = solver.solve(timeout=timeout)
 
 elif method == 'IP Gen Col CP':
     from ttp_master import TTPMaster
     from ColGenIP_CP.cpgenerator import CPPatternGenerator
-    solver = TTPMaster(n, matrix, 1, 3, CPPatternGenerator)
+
+    p_s = None
+    if n > 4:
+        from cpsolver import CPSolver
+        p_s = CPSolver
+    solver = TTPMaster(n, matrix, 1, 3, CPPatternGenerator, pattern_setter=p_s)
     answer = solver.solve(timeout=timeout)
 
 print()

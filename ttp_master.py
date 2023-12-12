@@ -5,7 +5,9 @@ from threading import Thread
 
 
 class TTPMaster:
-    def __init__(self, n_teams: int, distances: list, lower: int, upper: int, satt1=None, satt2=None, patterns=[], verbose=False):
+    def __init__(self, n_teams: int, distances: list, lower: int, upper: int, 
+                 satt=None, pattern_setter=None, setter_time=10, patterns=[], verbose=False):
+
         self.N = n_teams
         self.teams = range(n_teams)
         self.slots = range(2 * n_teams - 2)
@@ -20,20 +22,11 @@ class TTPMaster:
         self.master = Model()
         self.master.Params.OutputFlag = 0
         
-        if satt1 and satt2:
-            self.sattelite1 = satt1(n_teams, lower, upper, distances)
-            self.sattelite2 = satt2(n_teams, lower, upper, distances)
-
-        elif satt1:
-            self.sattelite1 = satt1(n_teams, lower, upper, distances)
-            self.sattelite2 = None
-        
-        elif satt2:
-            self.sattelite1 = satt2(n_teams, lower, upper, distances)
-            self.sattelite2 = None
+        if satt:
+            self.sattelite = satt(n_teams, lower, upper, distances)
 
         else:
-            print("No elegiste ningun problema satelite por lo que no se puede resolver")
+           raise Exception("No elegiste ningun problema satelite por lo que no se puede resolver")
             
         self.best_sol = {'objective': float('inf'), 'patterns': []}
         self.partial_sol = {'objective': float('inf'), 'patterns': [], 'vars': []}
@@ -46,8 +39,10 @@ class TTPMaster:
         self.timeout = False
         self.iterations = 0
 
+        self.pattern_setter = pattern_setter
+
         if not self.patterns:
-            self.set_initial_patterns()
+            self.set_initial_patterns(timeout=setter_time)
 
         self.initialize()
 
@@ -63,12 +58,34 @@ class TTPMaster:
         self.set_home_patterns()
         self.set_away_patterns()
 
-    def set_initial_patterns(self):
+    def set_initial_patterns(self, timeout):
+        if self.VERBOSE:
+            print("Generating initial patterns...")
+
         self.patterns = []
-        for i in self.teams:
-            ans = self.sattelite1.single_gen_solve(i)
-            if ans['status'] == 'Feasible':
-                self.patterns.append(ans['pattern'])
+
+        if self.pattern_setter is None:
+            for i in self.teams:
+                ans = self.sattelite.single_gen_solve(i)
+                if ans['status'] == 'Feasible':
+                    self.patterns.append(ans['pattern'])
+            
+            if self.VERBOSE:
+                print(f"Done!\n")
+            
+            return
+
+        t = timeout
+        ans = self.pattern_setter(self.N, self.distances, self.lower, self.upper, timeout=t)
+
+        while not ans['pattern']:
+            t += 5
+            ans = self.pattern_setter(self.N, self.distances, self.lower, self.upper, timeout=t)
+
+        if self.VERBOSE:
+            print(f"Initial patterns generated in {t} seconds\n")
+        
+        self.patterns = ans['pattern']
 
     def set_team_patterns(self):
         p_t = dict() 
@@ -151,7 +168,7 @@ class TTPMaster:
     def heur_sattelite_solve(self, home, pool_size=10):
         gen_patts = []
         for _ in range(pool_size):
-            ans = self.sattelite1.single_gen_solve(home)
+            ans = self.sattelite.single_gen_solve(home)
             if ans['status'] == 'Feasible':
                 gen_patts.append(ans['pattern'])
         
@@ -209,7 +226,6 @@ class TTPMaster:
         self.optimal = False
         self.iterations = 0
         self.start_time = time()
-        print("hola")
 
         while not self.optimal:
             self.master_solve()
@@ -237,60 +253,16 @@ class TTPMaster:
 
                 optimal = True
                 for t in self.teams:
-                    # Comparing when having two sattelites
-                    if self.sattelite1 and self.sattelite2:
-                        dictionary1 = self.sattelite1.single_solve(t, duals['Asignacion'] + duals['R'])
-                        dictionary2 = self.sattelite2.single_solve(t, duals['Asignacion'] + duals['R'])
-                        if self.VERBOSE:
-                            if dictionary1['status'] != dictionary2['status']:
-                                print("\n-----------------------------------------------\n")
-                                print("No coinciden los status de los modelos")
-                                print(f"Estado satt1: {dictionary1['status']}")
-                                print(f"Estado satt2: {dictionary2['status']}")
-                                print("\n-----------------------------------------------\n")
-                                
-                            
-                            elif dictionary1['status'] == "Feasible" and dictionary1['obj_val'] * dictionary2['obj_val'] < 0:
-                                print("\n-----------------------------------------------")
-                                print("No coinciden los signos de los satelites")
-                                print(f"Obj_val satt1: {dictionary1['obj_val']}")
-                                print(f"Costo reducido satt1: {self.get_reduced_cost(dictionary1['pattern'], t, duals)}")
-                                print(f"Obj_val satt2: {dictionary2['obj_val']}")
-                                print(f"Costo reducido satt2: {self.get_reduced_cost(dictionary2['pattern'], t, duals)}")
-                                print(F"Patron satt1: {dictionary1['pattern']}")
-                                print(f"Patron satt2: {dictionary2['pattern']}")
-                                print("-----------------------------------------------\n")
-                            
-                            elif dictionary1['status'] == "Feasible" and abs(dictionary1['obj_val'] - dictionary2['obj_val']) < 1e-4:
-                                print("\n-----------------------------------------------")
-                                print("Las respuestas si coinciden")
-                                print(f"Obj_val satt1: {dictionary1['obj_val']}")
-                                print(f"Obj_val satt2: {dictionary2['obj_val']}")
-                                print(F"Patron satt1: {dictionary1['pattern']}")
-                                print(f"Patron satt2: {dictionary2['pattern']}")
-                                print("-----------------------------------------------\n")
-                        
-                        if dictionary2['status'] == "Feasible" and dictionary2['obj_val'] < 0:
-                            optimal = False
-                            self.patterns.append(dictionary2['pattern'])
-                            self.add_column(dictionary2['pattern'], t)
-                        elif dictionary2['status'] == "Infeasible":
-                            optimal = False
-                            
-                    # Having only one sattelite
-                    elif self.sattelite1:
-                        dictionary = self.sattelite1.single_solve(t, duals['Asignacion'] + duals['R'])
+                    dictionary = self.sattelite.single_solve(t, duals['Asignacion'] + duals['R'])
 
-                        if dictionary['status'] == "Feasible" and dictionary['obj_val'] < 0:
-                            optimal = False
-                            self.patterns.append(dictionary['pattern'])
-                            self.add_column(dictionary['pattern'], t)
+                    if dictionary['status'] == "Feasible" and dictionary['obj_val'] < 0:
+                        optimal = False
+
+                        self.patterns.append(dictionary['pattern'])
+                        self.add_column(dictionary['pattern'], t)
                             
-                            if self.VERBOSE:
-                                print(dictionary['pattern'])
-                                
-                        elif dictionary['status'] == "Infeasible":
-                            optimal = False
+                    elif dictionary['status'] == "Infeasible":
+                        optimal = False
 
                 self.optimal = optimal
 
@@ -299,7 +271,6 @@ class TTPMaster:
                     print("Infeasible master problem")
                 for t in self.teams:
                     gen_patts = self.heur_sattelite_solve(t)
-                    print(gen_patts)
                     for p in gen_patts:
                         self.patterns.append(p)
                         self.add_column(p, t)
@@ -307,7 +278,6 @@ class TTPMaster:
             self.iterations += 1
 
     def solve(self, timeout=3600):
-        # print("partire la thread")
         solve_thread = Thread(target=self.solve_alg, daemon=True)
         solve_thread.start()
 
@@ -346,11 +316,11 @@ class TTPMaster:
         self.model_int.Params.NonConvex = 2  # Suppress academic license message
         self.model_int.setParam('TimeLimit', timeout)
 
+        self.x_int = [self.model_int.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
+                      for i in range(len(self.patterns))]
+
         self.create_aux_sets()
         self.set_costs()
-        
-        self.x_int = [self.model_int.addVar(vtype=GRB.BINARY, name=f'x_{i}') 
-                  for i in range(len(self.patterns))]
         
         for t in self.teams: 
             for s in self.slots:
@@ -376,9 +346,13 @@ class TTPMaster:
         self.model_int.update()
         self.model_int.optimize()
         
-        if self.model_int.status == GRB.OPTIMAL or (self.model_int.status == GRB.TIME_LIMIT and self.model_int.solCount > 0) or self.model_int.status == GRB.SUBOPTIMAL:
+        cond_opt = self.model_int.status == GRB.OPTIMAL
+        cond_time = self.model_int.status == GRB.TIME_LIMIT and self.model_int.solCount > 0
+        cond_subopt = self.model_int.status == GRB.SUBOPTIMAL
+
+        if cond_opt or cond_time or cond_subopt:
             if self.VERBOSE:
-                print("SOLUCION ENTERA CON LAS COLUMNAS GENERADAS")
+                print("\nSOLUCION ENTERA CON LAS COLUMNAS GENERADAS:")
                 print(self.model_int.ObjVal)
             patrones = []
             for i in range(len(self.patterns)):
@@ -425,8 +399,9 @@ if __name__ == '__main__':
     from ColGenIP_CP.inst_gen.generator import generate_distance_matrix
     from ColGenIP_CP.cpgenerator import CPPatternGenerator
     from ColGenIP_IP.MIP_col_gen import MIPPatternGenerator
+    from cpsolver import CPSolver
     
-    n = 6
+    n = 4
     dist = generate_distance_matrix(n)
 
     # pat = [[1, 4, 5, 0, 0, 0, 2, 3, 0, 0], [1, 1, 4, 2, 0, 1, 3, 5, 1, 1], [4, 1, 2, 2, 2, 0, 2, 2, 5, 3], [3, 5, 2, 0, 3, 4, 3, 3, 1, 3], [4, 4, 4, 5, 3, 4, 4, 2, 0, 1], [3, 5, 5, 5, 2, 1, 4, 5, 5, 0]]
@@ -437,9 +412,10 @@ if __name__ == '__main__':
     # 
     sattelite_CP = CPPatternGenerator
     
+    patt_setter = CPSolver
     #  __init__(self, n_teams: int, distances: list, lower: int, upper: int, satt, patterns=[]):
-    # ttp_solver = TTPMaster(n, dist, 1, 3, satt1=sattelite_MIP, satt2=sattelite_CP)
-    # ttp_solver = TTPMaster(n, dist, 1, 3, satt1=sattelite_MIP, verbose=True)
-    ttp_solver = TTPMaster(n, dist, 1, 3, satt2=sattelite_CP)
-    ttp_solver.solve(timeout=180)
+
+    # ttp_solver = TTPMaster(n, dist, 1, 3, satt=sattelite_MIP, verbose=True)
+    ttp_solver = TTPMaster(n, dist, 1, 3, satt=sattelite_MIP, pattern_setter=None, verbose=True)
+    ttp_solver.solve(timeout=600)
     # ttp_solver.integer_solver()
