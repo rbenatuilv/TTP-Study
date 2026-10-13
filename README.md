@@ -115,5 +115,6 @@ Set `POBLATE = True` in `parallelizer.py` to generate new instances, and adjust 
 
 ## Context
 
-Developed in 2023 as an undergraduate research project (IPre) in collaboration with
-a classmate.
+Developed in 2023 as an undergraduate research project (IPre) by
+[Roberto Benatuil](https://github.com/rbenatuilv) and
+[Ignacio Monardes](https://github.com/IgnAMS), supervised by Prof. Margarita Castro.
